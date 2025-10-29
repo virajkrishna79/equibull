@@ -24,7 +24,7 @@ const Navbar = () => {
               <div className="w-8 h-8 bg-gradient-to-r from-primary-600 to-primary-800 rounded-lg flex items-center justify-center">
                 <TrendingUp className="w-5 h-5 text-white" />
               </div>
-              <span className="text-xl font-bold text-gray-900">StockAI</span>
+              <span className="text-xl font-bold text-gray-900">EquiBull</span>
             </Link>
           </div>
 
@@ -96,3 +96,4 @@ const Navbar = () => {
 };
 
 export default Navbar;
+
