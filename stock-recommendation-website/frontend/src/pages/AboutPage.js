@@ -5,10 +5,17 @@ const AboutPage = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {import React from 'react';
+import { TrendingUp, Brain, Shield, Zap, Users, Award } from 'lucide-react';
+
+const AboutPage = () => {
+  return (
+    <div className="min-h-screen bg-gray-50 py-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-            About StockAI
+            About EquiBull
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             We're revolutionizing stock market analysis by combining cutting-edge AI technology with proven financial strategies
@@ -29,7 +36,7 @@ const AboutPage = () => {
               <div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-3">What We Do</h3>
                 <p className="text-gray-600 mb-4">
-                  StockAI analyzes thousands of data points including technical indicators, market sentiment, news analysis, and price patterns to generate intelligent stock recommendations.
+                  EquiBull analyzes thousands of data points including technical indicators, market sentiment, news analysis, and price patterns to generate intelligent stock recommendations.
                 </p>
                 <p className="text-gray-600">
                   Our system continuously learns and adapts to market conditions, ensuring our recommendations remain relevant and accurate.
@@ -42,7 +49,7 @@ const AboutPage = () => {
                   Individual investors often lack access to the sophisticated analysis tools used by professional traders and institutional investors.
                 </p>
                 <p className="text-gray-600">
-                  StockAI levels the playing field by providing retail investors with institutional-quality analysis and recommendations.
+                  EquiBull levels the playing field by providing retail investors with institutional-quality analysis and recommendations.
                 </p>
               </div>
             </div>
@@ -191,7 +198,7 @@ const AboutPage = () => {
           <div className="bg-gradient-to-r from-primary-600 to-primary-800 rounded-2xl shadow-lg p-8 md:p-12 text-white">
             <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
             <p className="text-xl text-primary-100 mb-8 max-w-2xl mx-auto">
-              Join thousands of investors who are already making smarter decisions with StockAI
+              Join thousands of investors who are already making smarter decisions with EquiBull
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a
