@@ -5,6 +5,7 @@ import Navbar from './components/Navbar';
 import HomePage from './pages/HomePage';
 import AboutPage from './pages/AboutPage';
 import StockAnalysisPage from './pages/StockAnalysisPage';
+import NewsPage from './pages/NewsPage';
 import './App.css';
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/about" element={<AboutPage />} />
+            <Route path="/news" element={<NewsPage />} />
             <Route path="/analysis/:symbol" element={<StockAnalysisPage />} />
             <Route path="/analysis" element={<StockAnalysisPage />} />
           </Routes>
