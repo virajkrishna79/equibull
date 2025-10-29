@@ -19,8 +19,8 @@ class NewsService:
         try:
             # Try to get news from API
             if self.news_api_key:
-                # Prefer India business headlines, then fallback to global finance search
-                news = self._fetch_top_headlines_india(limit) or self._fetch_news_from_api(limit)
+                # India-only business headlines
+                news = self._fetch_top_headlines_india(limit)
                 if news:
                     return news
             
@@ -218,11 +218,40 @@ class NewsService:
     def get_news_for_symbol(self, symbol: str, limit: int = 5) -> List[Dict[str, Any]]:
         """Get news specific to a stock symbol"""
         try:
-            # Search for news about the specific company
+            # India-only news for the specific company/symbol
             if self.news_api_key:
-                query = f'"{symbol}" OR "{self._get_company_name(symbol)}"'
+                # Try top-headlines country=in first
+                try:
+                    url = f"{self.news_base_url}/top-headlines"
+                    params = {
+                        'country': 'in',
+                        'q': f'"{symbol}" OR "{self._get_company_name(symbol)}"',
+                        'pageSize': limit,
+                        'apiKey': self.news_api_key
+                    }
+                    response = requests.get(url, params=params, timeout=10)
+                    response.raise_for_status()
+                    data = response.json()
+                    if 'articles' in data and data['articles']:
+                        articles = []
+                        for article in data['articles'][:limit]:
+                            sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
+                            articles.append({
+                                'title': article['title'],
+                                'description': article.get('description', ''),
+                                'url': article.get('url', ''),
+                                'source': article.get('source', {}).get('name', ''),
+                                'published_at': article.get('publishedAt', datetime.now().isoformat()),
+                                'sentiment_score': sentiment_score,
+                                'sentiment_label': sentiment_label
+                            })
+                        return articles
+                except Exception:
+                    pass
+
+                # Fallback: everything search but bias to India via query terms
+                query = f'("{symbol}" OR "{self._get_company_name(symbol)}") AND (India OR NSE OR BSE)'
                 url = f"{self.news_base_url}/everything"
-                
                 params = {
                     'q': query,
                     'language': 'en',
@@ -230,27 +259,22 @@ class NewsService:
                     'pageSize': limit,
                     'apiKey': self.news_api_key
                 }
-                
                 response = requests.get(url, params=params, timeout=10)
                 response.raise_for_status()
-                
                 data = response.json()
-                
                 if 'articles' in data:
                     articles = []
                     for article in data['articles'][:limit]:
                         sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
-                        
                         articles.append({
                             'title': article['title'],
                             'description': article.get('description', ''),
                             'url': article.get('url', ''),
                             'source': article.get('source', {}).get('name', ''),
-                            'published_at': article['publishedAt'],
+                            'published_at': article.get('publishedAt', datetime.now().isoformat()),
                             'sentiment_score': sentiment_score,
                             'sentiment_label': sentiment_label
                         })
-                    
                     return articles
             
             # Fallback to general market news
