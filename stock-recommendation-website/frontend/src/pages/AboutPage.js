@@ -5,14 +5,7 @@ const AboutPage = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {import React from 'react';
-import { TrendingUp, Brain, Shield, Zap, Users, Award } from 'lucide-react';
-
-const AboutPage = () => {
-  return (
-    <div className="min-h-screen bg-gray-50 py-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
+        
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
             About EquiBull
@@ -22,7 +15,7 @@ const AboutPage = () => {
           </p>
         </div>
 
-        {/* Mission Section */}
+        
         <section className="mb-16">
           <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12">
             <div className="text-center mb-8">
@@ -56,7 +49,7 @@ const AboutPage = () => {
           </div>
         </section>
 
-        {/* Features Grid */}
+        
         <section className="mb-16">
           <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">What Makes Us Unique</h2>
           
@@ -123,7 +116,7 @@ const AboutPage = () => {
           </div>
         </section>
 
-        {/* Technology Stack */}
+        
         <section className="mb-16">
           <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12">
             <h2 className="text-3xl font-bold text-gray-900 text-center mb-8">Technology Stack</h2>
@@ -154,7 +147,7 @@ const AboutPage = () => {
           </div>
         </section>
 
-        {/* Team Section */}
+        
         <section className="mb-16">
           <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12">
             <h2 className="text-3xl font-bold text-gray-900 text-center mb-8">Our Team</h2>
@@ -193,7 +186,7 @@ const AboutPage = () => {
           </div>
         </section>
 
-        {/* CTA Section */}
+        
         <section className="text-center">
           <div className="bg-gradient-to-r from-primary-600 to-primary-800 rounded-2xl shadow-lg p-8 md:p-12 text-white">
             <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
