@@ -19,7 +19,8 @@ class NewsService:
         try:
             # Try to get news from API
             if self.news_api_key:
-                news = self._fetch_news_from_api(limit)
+                # Prefer India business headlines, then fallback to global finance search
+                news = self._fetch_top_headlines_india(limit) or self._fetch_news_from_api(limit)
                 if news:
                     return news
             
@@ -90,6 +91,37 @@ class NewsService:
         except Exception as e:
             logger.warning(f"News API failed: {e}")
             
+        return None
+
+    def _fetch_top_headlines_india(self, limit: int) -> Optional[List[Dict[str, Any]]]:
+        """Fetch India-focused business headlines using NewsAPI top-headlines."""
+        try:
+            url = f"{self.news_base_url}/top-headlines"
+            params = {
+                'country': 'in',
+                'category': 'business',
+                'pageSize': limit,
+                'apiKey': self.news_api_key
+            }
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            if 'articles' in data:
+                articles = []
+                for article in data['articles'][:limit]:
+                    sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
+                    articles.append({
+                        'title': article['title'],
+                        'description': article.get('description', ''),
+                        'url': article.get('url', ''),
+                        'source': article.get('source', {}).get('name', ''),
+                        'published_at': article.get('publishedAt', datetime.now().isoformat()),
+                        'sentiment_score': sentiment_score,
+                        'sentiment_label': sentiment_label
+                    })
+                return articles
+        except Exception as e:
+            logger.warning(f"Top headlines (IN) failed: {e}")
         return None
     
     def _analyze_sentiment(self, text: str) -> tuple:
