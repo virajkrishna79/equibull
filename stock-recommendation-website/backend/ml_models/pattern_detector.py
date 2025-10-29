@@ -1,5 +1,6 @@
 import pandas as pd
 from typing import Dict, Any
+import yfinance as yf
 
 
 class PatternDetector:
@@ -8,7 +9,7 @@ class PatternDetector:
     Replace the logic in detect_pattern with the algorithm from the provided image.
     """
 
-    def detect_pattern(self, historical_df: pd.DataFrame) -> Dict[str, Any]:
+    def detect_pattern(self, historical_df: pd.DataFrame, symbol: str | None = None) -> Dict[str, Any]:
         if historical_df is None or historical_df.empty:
             return {"matched": False, "score": 0.0, "details": "No data"}
 
@@ -18,42 +19,82 @@ class PatternDetector:
             if len(df) < 50:
                 return {"matched": False, "score": 0.0, "details": "Insufficient history"}
 
-            # Example scaffold logic (to be replaced with your image-based rules):
-            # - Uptrend confirmation via 50-day > 200-day SMA
-            sma_50 = df["Close"].rolling(window=50).mean()
-            sma_200 = df["Close"].rolling(window=200).mean()
+            # Implemented rules from image:
+            # rules = [
+            #   price_change_52w > 0,
+            #   market_cap > 1e9,
+            #   current_price < 500,
+            #   current_price > 100,
+            #   price_vs_50dma > 100,
+            #   resistance_distance < 10
+            # ]
 
-            trend_ok = False
-            if len(sma_200.dropna()) > 0:
-                trend_ok = sma_50.iloc[-1] > sma_200.iloc[-1]
+            latest_close = float(df["Close"].iloc[-1])
 
-            # - Recent breakout: latest close > last 20-day high
-            last_20_high = df["High"].rolling(window=20).max().iloc[-2]
-            latest_close = df["Close"].iloc[-1]
-            breakout = latest_close > last_20_high
+            # 52-week price change
+            window_52w = min(252, len(df))
+            price_52w_ago = float(df["Close"].iloc[-window_52w])
+            price_change_52w = ((latest_close - price_52w_ago) / price_52w_ago) * 100 if price_52w_ago > 0 else 0.0
 
-            # - Volume expansion: last day volume > 1.5x 20-day avg volume
-            vol_20 = df["Volume"].rolling(window=20).mean().iloc[-2]
-            latest_vol = df["Volume"].iloc[-1]
-            volume_expansion = latest_vol > 1.5 * vol_20 if pd.notna(vol_20) else False
+            # 50-DMA percentage vs price (current as % of 50DMA)
+            dma50 = float(df["Close"].rolling(50).mean().iloc[-1]) if len(df) >= 50 else float("nan")
+            price_vs_50dma = (latest_close / dma50 * 100) if pd.notna(dma50) and dma50 > 0 else 0.0
 
-            score = 0
+            # Simple resistance: recent 20-day high; distance in % from resistance
+            recent_high = float(df["High"].rolling(20).max().iloc[-2]) if len(df) >= 21 else latest_close
+            resistance_distance = ((recent_high - latest_close) / recent_high * 100) if recent_high > 0 else 100.0
+
+            # Market cap via yfinance (if symbol available)
+            market_cap = 0.0
+            if symbol:
+                ysym = symbol if symbol.endswith('.NS') or symbol.endswith('.BO') else f"{symbol}.NS"
+                try:
+                    t = yf.Ticker(ysym)
+                    info = getattr(t, 'fast_info', None)
+                    if info and getattr(info, 'market_cap', None):
+                        market_cap = float(info.market_cap)
+                    else:
+                        # fallback to slower .info
+                        ic = t.info
+                        market_cap = float(ic.get('marketCap') or 0.0)
+                except Exception:
+                    market_cap = 0.0
+
+            # Evaluate rules
+            rules = [
+                price_change_52w > 0.0,
+                market_cap > 1e9,
+                latest_close < 500.0,
+                latest_close > 100.0,
+                price_vs_50dma > 100.0,
+                resistance_distance < 10.0,
+            ]
+
             reasons = []
-            if trend_ok:
-                score += 2
-                reasons.append("Uptrend: 50SMA > 200SMA")
-            if breakout:
-                score += 2
-                reasons.append("Breakout: Close > 20-day high")
-            if volume_expansion:
-                score += 1
-                reasons.append("Volume expansion: >1.5x 20-day avg")
+            if price_change_52w > 0.0:
+                reasons.append(f"52w change positive ({price_change_52w:.1f}%)")
+            if market_cap > 1e9:
+                reasons.append(f"MCap>{1e9:.0f} ({market_cap:.0f})")
+            if latest_close < 500.0 and latest_close > 100.0:
+                reasons.append(f"Price in [100,500): {latest_close:.2f}")
+            if price_vs_50dma > 100.0:
+                reasons.append(f"Above 50DMA ({price_vs_50dma:.1f}% of 50DMA)")
+            if resistance_distance < 10.0:
+                reasons.append(f"<10% below resistance ({resistance_distance:.1f}%)")
 
-            matched = score >= 3
+            matched = all(rules)
+            score = float(sum(1 for r in rules if r)) / len(rules)
             return {
                 "matched": matched,
-                "score": float(score) / 5.0,
-                "details": ", ".join(reasons) if reasons else "No strong signals"
+                "score": score,
+                "details": ", ".join(reasons) if reasons else "No match",
+                "metrics": {
+                    "price_change_52w": price_change_52w,
+                    "market_cap": market_cap,
+                    "current_price": latest_close,
+                    "price_vs_50dma": price_vs_50dma,
+                    "resistance_distance": resistance_distance,
+                }
             }
         except Exception as exc:
             return {"matched": False, "score": 0.0, "details": f"Error: {exc}"}
