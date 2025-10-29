@@ -148,8 +148,9 @@ class RecommendationService:
             
             # Pattern detection (from image-based algorithm - scaffold)
             try:
-                hist_df = self.stock_service.get_historical_data(stock_data.get('symbol', ''), days=240)
-                pattern = self.pattern_detector.detect_pattern(hist_df)
+                sym = stock_data.get('symbol', '')
+                hist_df = self.stock_service.get_historical_data(sym, days=260)
+                pattern = self.pattern_detector.detect_pattern(hist_df, symbol=sym)
                 if pattern.get('matched'):
                     score += 2
                     reasons.append(f"Pattern match: {pattern.get('details', '')}")
