@@ -5,24 +5,19 @@
       "src": "frontend/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "build"
+        "distDir": "build",
+        "installCommand": "npm ci",
+        "buildCommand": "npm run build"
       }
     }
   ],
-  "routes": [
-    
-"version": 2,
-"builds": [
-{ "src": "frontend/package.json", "use": "@vercel/static-build", "config": { "distDir": "build" } }
-],
-"rewrites": [
-{ "source": "/api/(.)", "destination": "https://equibull-production.up.railway.app/api/$1" },
-{ "source": "/(.)", "destination": "/index.html" }
-],
-"env": {
-"REACT_APP_API_URL": "https://equibull-production.up.railway.app"
-}
-  ]
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://equibull-production.up.railway.app/api/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "env": {
+    "REACT_APP_API_URL": "https://equibull-production.up.railway.app"
+  }
 }
 
 
