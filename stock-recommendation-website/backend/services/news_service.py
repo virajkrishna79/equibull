@@ -20,17 +20,8 @@ INDIA_MARKET_KEYWORDS = [
 def is_india_article(article):
     title = (article.get('title') or '').lower()
     desc = (article.get('description') or '').lower()
-    url = (article.get('url') or '').lower()
-    source = (article.get('source') or '')
-    src_name = ''
-    if isinstance(source, dict):
-        src_name = (source.get('name') or '').lower()
-    elif isinstance(source, str):
-        src_name = source.lower()
-    domain_match = any(dom in url for dom in INDIA_NEWS_SOURCES)
-    keyword_match = any(k in title or k in desc for k in INDIA_MARKET_KEYWORDS)
-    src_match = any(dom in src_name for dom in INDIA_NEWS_SOURCES)
-    return domain_match or keyword_match or src_match
+    # Only require INDIA_MARKET_KEYWORDS in title or desc
+    return any(k in title or k in desc for k in INDIA_MARKET_KEYWORDS)
 
 class NewsService:
     def __init__(self):
@@ -113,17 +104,31 @@ class NewsService:
             params = {
                 'country': 'in',
                 'category': 'business',
-                'pageSize': limit * 3,  # Get more to filter
+                'pageSize': limit * 3,
                 'apiKey': self.news_api_key
             }
             response = requests.get(url, params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
+            filtered = []
             if 'articles' in data:
-                filtered = []
                 for article in data['articles']:
-                    if not is_india_article(article):
-                        continue
+                    if is_india_article(article):
+                        sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
+                        filtered.append({
+                            'title': article['title'],
+                            'description': article.get('description', ''),
+                            'url': article.get('url', ''),
+                            'source': article.get('source', {}).get('name', ''),
+                            'published_at': article.get('publishedAt', datetime.now().isoformat()),
+                            'sentiment_score': sentiment_score,
+                            'sentiment_label': sentiment_label
+                        })
+                    if len(filtered) >= limit:
+                        break
+            # Fallback: if still empty, accept first 'limit' from plain headlines
+            if not filtered and 'articles' in data:
+                for article in data['articles'][:limit]:
                     sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
                     filtered.append({
                         'title': article['title'],
@@ -134,9 +139,7 @@ class NewsService:
                         'sentiment_score': sentiment_score,
                         'sentiment_label': sentiment_label
                     })
-                    if len(filtered) >= limit:
-                        break
-                return filtered
+            return filtered
         except Exception as e:
             logger.warning(f"Top headlines (IN) failed: {e}")
         return None
