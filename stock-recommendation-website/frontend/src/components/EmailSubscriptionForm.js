@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Mail, CheckCircle } from 'lucide-react';
 import { subscribeToNewsletter } from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -43,7 +42,7 @@ const EmailSubscriptionForm = ({ onSuccess }) => {
     return (
       <div className="bg-success-50 border border-success-200 rounded-lg p-6 max-w-md mx-auto">
         <div className="flex items-center justify-center space-x-3 text-success-800">
-          <CheckCircle className="w-6 h-6" />
+          <span role="img" aria-label="Check">✅</span>
           <span className="text-lg font-medium">Subscription Successful!</span>
         </div>
         <p className="text-success-700 text-center mt-2">
@@ -62,7 +61,7 @@ const EmailSubscriptionForm = ({ onSuccess }) => {
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Mail className="h-5 w-5 text-gray-400" />
+              <span role="img" aria-label="Email" className="h-5 w-5 text-gray-400">📧</span>
             </div>
             <input
               type="email"
@@ -89,7 +88,7 @@ const EmailSubscriptionForm = ({ onSuccess }) => {
             </>
           ) : (
             <>
-              <Mail className="w-4 h-4" />
+              <span role="img" aria-label="Email" className="w-4 h-4">📧</span>
               <span>Subscribe to Recommendations</span>
             </>
           )}
