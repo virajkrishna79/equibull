@@ -97,40 +97,24 @@ class NewsService:
 
         return None
 
+    # Remove is_india_article and keyword filters, collect all top-headlines articles
     def _fetch_top_headlines_india(self, limit: int) -> Optional[List[Dict[str, Any]]]:
-        """Fetch India-focused business headlines using NewsAPI top-headlines."""
         try:
             url = f"{self.news_base_url}/top-headlines"
             params = {
                 'country': 'in',
                 'category': 'business',
-                'pageSize': limit * 3,
+                'pageSize': limit,
                 'apiKey': self.news_api_key
             }
             response = requests.get(url, params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
-            filtered = []
+            articles = []
             if 'articles' in data:
-                for article in data['articles']:
-                    if is_india_article(article):
-                        sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
-                        filtered.append({
-                            'title': article['title'],
-                            'description': article.get('description', ''),
-                            'url': article.get('url', ''),
-                            'source': article.get('source', {}).get('name', ''),
-                            'published_at': article.get('publishedAt', datetime.now().isoformat()),
-                            'sentiment_score': sentiment_score,
-                            'sentiment_label': sentiment_label
-                        })
-                    if len(filtered) >= limit:
-                        break
-            # Fallback: if still empty, accept first 'limit' from plain headlines
-            if not filtered and 'articles' in data:
                 for article in data['articles'][:limit]:
                     sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
-                    filtered.append({
+                    articles.append({
                         'title': article['title'],
                         'description': article.get('description', ''),
                         'url': article.get('url', ''),
@@ -139,7 +123,7 @@ class NewsService:
                         'sentiment_score': sentiment_score,
                         'sentiment_label': sentiment_label
                     })
-            return filtered
+            return articles
         except Exception as e:
             logger.warning(f"Top headlines (IN) failed: {e}")
         return None
