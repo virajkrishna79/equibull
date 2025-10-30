@@ -5,23 +5,8 @@ from typing import List, Dict, Any, Optional
 import os
 from models import NewsArticle
 from app import db
-import re
-from utils.symbols import NIFTY50_SYMBOLS
 
 logger = logging.getLogger(__name__)
-
-INDIA_NEWS_SOURCES = [
-    'timesofindia', 'moneycontrol', 'ndtv', 'hindustantimes', 'mint', 'economictimes', 'bloombergquint', 'livemint', 'business-standard', 'indiatoday', 'zeenews', 'outlookindia', 'thehindu', 'businessline', 'cnbctv18', 'news18',
-]
-INDIA_MARKET_KEYWORDS = [
-    'india', 'nse', 'bse', 'sensex', 'nifty', 'sebi', 'stock market', 'stock exchange', 'ipo', 'bourses', 'dalal street', 'mcx',
-] + [sym.lower() for sym in NIFTY50_SYMBOLS]
-
-def is_india_article(article):
-    title = (article.get('title') or '').lower()
-    desc = (article.get('description') or '').lower()
-    # Only require INDIA_MARKET_KEYWORDS in title or desc
-    return any(k in title or k in desc for k in INDIA_MARKET_KEYWORDS)
 
 class NewsService:
     def __init__(self):
@@ -30,96 +15,83 @@ class NewsService:
         self.fallback_news = self._get_fallback_news()
         
     def get_latest_news(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """Get latest market news with sentiment analysis"""
+        """Get latest India business market news with sentiment analysis"""
         try:
-            news = []
-            # Try live NewsAPI first
             if self.news_api_key:
+                # Only India business headlines
                 news = self._fetch_top_headlines_india(limit)
                 if news and len(news) > 0:
-                    # Save these to DB for fallback later
-                    for article in news:
-                        try:
-                            db_article = NewsArticle(
-                                title=article['title'],
-                                description=article.get('description', ''),
-                                content='',
-                                url=article.get('url', ''),
-                                source=article.get('source', ''),
-                                published_at=datetime.fromisoformat(article.get('published_at', datetime.now().isoformat())),
-                                sentiment_score=article.get('sentiment_score', 0),
-                                sentiment_label=article.get('sentiment_label', 'neutral')
-                            )
-                            db.session.add(db_article)
-                        except Exception:
-                            db.session.rollback()
-                    try:
-                        db.session.commit()
-                    except Exception:
-                        db.session.rollback()
-                    return news[:limit]
-            # If NewsAPI empty: fetch last 20 from DB
-            try:
-                cached = self._get_stored_news(limit)
-                if cached and len(cached) > 0:
-                    return cached
-            except Exception:
-                pass
-            # Final fallback: hardcoded stories if nothing else is present
-            return self.fallback_news[:limit]
+                    return news
+            # If NewsAPI has nothing, show nothing (do NOT fallback)
+            return []
         except Exception as e:
             logger.error(f"Error fetching news: {e}")
-            return self.fallback_news[:limit]
+            return []
     
     def _fetch_news_from_api(self, limit: int) -> Optional[List[Dict[str, Any]]]:
         """Fetch news from NewsAPI"""
         try:
-            # Add more specific Indian finance keywords and tickers
-            india_query = (
-                "(stock market OR india OR NSE OR BSE OR Sensex OR Dalal Street OR IPO OR SEBI OR "
-                + " OR ".join(NIFTY50_SYMBOLS) + ") AND (finance OR equities OR investing)"
-            )
+            # Get news about stock market, finance, economy
+            query = "stock market OR finance OR economy OR investing"
             url = f"{self.news_base_url}/everything"
-
+            
             params = {
-                'q': india_query,
+                'q': query,
                 'language': 'en',
                 'sortBy': 'publishedAt',
-                'pageSize': limit * 3,
+                'pageSize': limit,
                 'apiKey': self.news_api_key
             }
-
+            
             response = requests.get(url, params=params, timeout=10)
             response.raise_for_status()
-
+            
             data = response.json()
-
+            
             if 'articles' in data:
-                filtered = []
-                for article in data['articles']:
-                    if not is_india_article(article):
-                        continue
+                articles = []
+                for article in data['articles'][:limit]:
+                    # Analyze sentiment
                     sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
-                    filtered.append({
+                    
+                    # Store in database
+                    news_article = NewsArticle(
+                        title=article['title'],
+                        description=article.get('description', ''),
+                        content=article.get('content', ''),
+                        url=article.get('url', ''),
+                        source=article.get('source', {}).get('name', ''),
+                        published_at=datetime.fromisoformat(article['publishedAt'].replace('Z', '+00:00')),
+                        sentiment_score=sentiment_score,
+                        sentiment_label=sentiment_label
+                    )
+                    
+                    try:
+                        db.session.add(news_article)
+                        db.session.commit()
+                    except Exception as e:
+                        logger.warning(f"Failed to store news article: {e}")
+                        db.session.rollback()
+                    
+                    articles.append({
                         'title': article['title'],
                         'description': article.get('description', ''),
                         'url': article.get('url', ''),
                         'source': article.get('source', {}).get('name', ''),
-                        'published_at': article.get('publishedAt', datetime.now().isoformat()),
+                        'published_at': article['publishedAt'],
                         'sentiment_score': sentiment_score,
                         'sentiment_label': sentiment_label
                     })
-                    if len(filtered) >= limit:
-                        break
-                return filtered
-
+                
+                return articles
+                
         except Exception as e:
             logger.warning(f"News API failed: {e}")
-
+            
         return None
 
-    # Remove is_india_article and keyword filters, collect all top-headlines articles
     def _fetch_top_headlines_india(self, limit: int) -> Optional[List[Dict[str, Any]]]:
+        """Fetch India-focused business headlines using NewsAPI top-headlines."""
         try:
             url = f"{self.news_base_url}/top-headlines"
             params = {
@@ -131,10 +103,36 @@ class NewsService:
             response = requests.get(url, params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
-            articles = []
             if 'articles' in data:
+                articles = []
                 for article in data['articles'][:limit]:
                     sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
+
+                    # Store in database
+                    try:
+                        published = article.get('publishedAt')
+                        published_dt = None
+                        if published:
+                            try:
+                                published_dt = datetime.fromisoformat(published.replace('Z', '+00:00'))
+                            except Exception:
+                                published_dt = datetime.utcnow()
+                        news_article = NewsArticle(
+                            title=article['title'],
+                            description=article.get('description', ''),
+                            content=article.get('content', ''),
+                            url=article.get('url', ''),
+                            source=article.get('source', {}).get('name', ''),
+                            published_at=published_dt,
+                            sentiment_score=sentiment_score,
+                            sentiment_label=sentiment_label
+                        )
+                        db.session.add(news_article)
+                        db.session.commit()
+                    except Exception as e:
+                        logger.warning(f"Failed to store top headline: {e}")
+                        db.session.rollback()
+
                     articles.append({
                         'title': article['title'],
                         'description': article.get('description', ''),
@@ -144,7 +142,7 @@ class NewsService:
                         'sentiment_score': sentiment_score,
                         'sentiment_label': sentiment_label
                     })
-            return articles
+                return articles
         except Exception as e:
             logger.warning(f"Top headlines (IN) failed: {e}")
         return None
