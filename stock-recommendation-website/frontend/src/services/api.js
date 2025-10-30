@@ -4,6 +4,12 @@ import axios from 'axios';
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000',
   timeout: 10000,
+  headeimport axios from 'axios';
+
+// Create axios instance with default configuration
+const api = axios.create({
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000',
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -51,7 +57,7 @@ api.interceptors.response.use(
 // API functions
 export const fetchNews = async (limit = 10) => {
   try {
-    const response = await api.get(`/api/news?limit=${limit}`);
+    const response = await api.get(`/api/news?limit=${limit}&_=${Date.now()}`);
     return response.news || [];
   } catch (error) {
     console.error('Error fetching news:', error);
