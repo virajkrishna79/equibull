@@ -109,7 +109,11 @@ def get_news():
     try:
         limit = request.args.get('limit', 10, type=int)
         news = news_service.get_latest_news(limit=limit)
-        return jsonify({'news': news})
+        response = jsonify({'news': news})
+        # Prevent CDN/browser caching so updates are visible immediately
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        return response
     except Exception as e:
         logger.error(f"Error fetching news: {e}")
         return jsonify({'error': 'Failed to fetch news'}), 500
