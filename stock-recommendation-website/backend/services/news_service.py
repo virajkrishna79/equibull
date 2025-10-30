@@ -19,9 +19,13 @@ class NewsService:
         try:
             # Try to get news from API
             if self.news_api_key:
-                # India-only business headlines
+                # India-only business headlines first, then fallback to broader search
                 news = self._fetch_top_headlines_india(limit)
-                if news:
+                if news and len(news) > 0:
+                    return news
+                # Fallback to global finance/economy/equities search if top-headlines returns none
+                news = self._fetch_news_from_api(limit)
+                if news and len(news) > 0:
                     return news
             
             # Fallback to stored news or default news
