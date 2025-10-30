@@ -171,7 +171,7 @@ class NewsService:
             {
                 'title': 'Stock Market Shows Resilience Amid Economic Challenges',
                 'description': 'Major indices demonstrate strength despite ongoing economic uncertainties.',
-                'url': '#',
+                'url': '',
                 'source': 'Market News',
                 'published_at': datetime.now().isoformat(),
                 'sentiment_score': 0.3,
@@ -180,7 +180,7 @@ class NewsService:
             {
                 'title': 'Tech Sector Leads Market Recovery',
                 'description': 'Technology stocks continue to outperform as investors seek growth opportunities.',
-                'url': '#',
+                'url': '',
                 'source': 'Financial Times',
                 'published_at': datetime.now().isoformat(),
                 'sentiment_score': 0.5,
@@ -189,7 +189,7 @@ class NewsService:
             {
                 'title': 'Federal Reserve Policy Impact on Markets',
                 'description': 'Investors closely watch Fed decisions for market direction clues.',
-                'url': '#',
+                'url': '',
                 'source': 'Reuters',
                 'published_at': datetime.now().isoformat(),
                 'sentiment_score': 0.0,
@@ -198,7 +198,7 @@ class NewsService:
             {
                 'title': 'Oil Prices Fluctuate on Supply Concerns',
                 'description': 'Energy sector faces volatility amid changing supply dynamics.',
-                'url': '#',
+                'url': '',
                 'source': 'Bloomberg',
                 'published_at': datetime.now().isoformat(),
                 'sentiment_score': -0.2,
@@ -207,7 +207,7 @@ class NewsService:
             {
                 'title': 'Earnings Season Brings Mixed Results',
                 'description': 'Corporate earnings reports show varied performance across sectors.',
-                'url': '#',
+                'url': '',
                 'source': 'CNBC',
                 'published_at': datetime.now().isoformat(),
                 'sentiment_score': 0.1,
