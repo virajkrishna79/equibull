@@ -4,6 +4,16 @@ import { ExternalLink, Calendar, Clock } from 'lucide-react';
 const NewsCard = ({ article }) => {
   const { title, description, url, source, published_at, sentiment_score, sentiment_label } = article;
 
+  const isValidExternalUrl = (u) => {
+    try {
+      if (!u) return false;
+      const parsed = new URL(u);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch (e) {
+      return false;
+    }
+  };
+
   const formatDate = (dateString) => {
     try {
       const date = new Date(dateString);
@@ -100,7 +110,7 @@ const NewsCard = ({ article }) => {
           </div>
         </div>
 
-        {url && (
+        {isValidExternalUrl(url) && (
           <a
             href={url}
             target="_blank"
