@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Search, TrendingUp, TrendingDown, Minus, BarChart3, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { fetchStockData } from '../services/api';
 
 const StockAnalysisPage = () => {
   const { symbol } = useParams();
@@ -21,53 +22,12 @@ const StockAnalysisPage = () => {
     setLoading(true);
     
     try {
-      // Mock API call - replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Mock data for demonstration
-      const mockStockData = {
-        symbol: searchSymbol.toUpperCase(),
-        current_price: 1250.50,
-        change: 45.25,
-        change_percent: 3.75,
-        volume: 1250000,
-        high: 1280.00,
-        low: 1205.00,
-        open: 1210.00,
-        previous_close: 1205.25,
-        source: 'upstox'
-      };
-
-      const mockRecommendation = {
-        symbol: searchSymbol.toUpperCase(),
-        recommendation: 'BUY',
-        confidence_score: 0.85,
-        algorithm_recommendation: 'BUY',
-        sentiment_score: 0.6,
-        current_price: 1250.50,
-        target_price: 1350.00,
-        reasoning: 'Strong technical indicators with positive momentum. RSI shows oversold condition, moving averages are bullish, and volume is increasing. Market sentiment is positive with recent news.',
-        technical_indicators: {
-          rsi: 35.2,
-          sma_20: 1230.00,
-          sma_50: 1180.00,
-          macd: 15.5,
-          macd_signal: 8.2
-        },
-        news_sentiment: {
-          score: 0.6,
-          label: 'positive',
-          count: 8
-        },
-        price_prediction: {
-          confidence: 0.78,
-          direction: 'up',
-          target_price: 1350.00
-        }
-      };
-
-      setStockData(mockStockData);
-      setRecommendation(mockRecommendation);
+      const resp = await fetchStockData(searchSymbol.trim());
+      if (!resp || !resp.stock_data || !resp.recommendation) {
+        throw new Error('No data returned');
+      }
+      setStockData(resp.stock_data);
+      setRecommendation(resp.recommendation);
       
     } catch (error) {
       toast.error('Failed to fetch stock data. Please try again.');
