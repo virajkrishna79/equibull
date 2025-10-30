@@ -8,6 +8,7 @@ from app import db
 import logging
 import os
 from utils.symbols import NIFTY50_SYMBOLS, load_symbol_universe
+from ml_models.screener_scan import screen_stocks
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -194,3 +195,12 @@ def cron_refresh_news():
     except Exception as e:
         logger.error(f"Error in news cron: {e}")
         return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/cron/ml-screener', methods=['POST'])
+def cron_ml_screener():
+    # Secure with cron secret
+    cron_secret = os.getenv('CRON_SECRET')
+    if request.headers.get('X-CRON-SECRET') != cron_secret:
+        return jsonify({'error': 'Unauthorized'}), 401
+    results = screen_stocks()[:5]  # Get top 5 matches
+    return jsonify({'ok': True, 'count': len(results), 'matches': results})
