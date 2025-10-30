@@ -15,21 +15,32 @@ class NewsService:
         self.fallback_news = self._get_fallback_news()
         
     def get_latest_news(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """Get latest India business market news with sentiment analysis, fallback to global finance news if none."""
-        try:
-            if self.news_api_key:
-                news = self._fetch_top_headlines_india(limit)
-                if news and len(news) > 0:
-                    return news
-                # fallback to global search if India headlines are empty
-                news = self._fetch_news_from_api(limit)
-                if news and len(news) > 0:
-                    return news
-            # If no live news, show nothing
-            return []
-        except Exception as e:
-            logger.error(f"Error fetching news: {e}")
-            return []
+    """Get latest India business market news with sentiment analysis, fallback to global finance news if none."""
+    try:
+        EXCLUDED_SOURCES = ['twistedsifter.com', 'rand.org', 'autoexpress.co.uk']
+        def keep(article):
+            src = (article.get('source') or '').lower()
+            url = (article.get('url') or '').lower()
+            for excl in EXCLUDED_SOURCES:
+                if excl in src or excl in url:
+                    return False
+            return True
+
+        if self.news_api_key:
+            news = self._fetch_top_headlines_india(limit * 3)  # Fetch extra for filtering
+            if news:
+                filtered = [a for a in news if keep(a)]
+                if filtered:
+                    return filtered[:limit]
+            news = self._fetch_news_from_api(limit * 3)
+            if news:
+                filtered = [a for a in news if keep(a)]
+                if filtered:
+                    return filtered[:limit]
+        return []
+    except Exception as e:
+        logger.error(f"Error fetching news: {e}")
+        return []
     
     def _fetch_news_from_api(self, limit: int) -> Optional[List[Dict[str, Any]]]:
         """Fetch news from NewsAPI"""
@@ -327,3 +338,4 @@ class NewsService:
         }
         
         return company_names.get(symbol.upper(), symbol)
+
