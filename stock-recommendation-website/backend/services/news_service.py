@@ -32,20 +32,41 @@ class NewsService:
     def get_latest_news(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get latest market news with sentiment analysis"""
         try:
-            # Try to get news from API
+            news = []
+            # Try live NewsAPI first
             if self.news_api_key:
-                # India-only business headlines first, then fallback to broader search
                 news = self._fetch_top_headlines_india(limit)
                 if news and len(news) > 0:
-                    return news
-                # Fallback to global finance/economy/equities search if top-headlines returns none
-                news = self._fetch_news_from_api(limit)
-                if news and len(news) > 0:
-                    return news
-            
-            # Fallback to stored news or default news
-            return self._get_stored_news(limit)
-            
+                    # Save these to DB for fallback later
+                    for article in news:
+                        try:
+                            db_article = NewsArticle(
+                                title=article['title'],
+                                description=article.get('description', ''),
+                                content='',
+                                url=article.get('url', ''),
+                                source=article.get('source', ''),
+                                published_at=datetime.fromisoformat(article.get('published_at', datetime.now().isoformat())),
+                                sentiment_score=article.get('sentiment_score', 0),
+                                sentiment_label=article.get('sentiment_label', 'neutral')
+                            )
+                            db.session.add(db_article)
+                        except Exception:
+                            db.session.rollback()
+                    try:
+                        db.session.commit()
+                    except Exception:
+                        db.session.rollback()
+                    return news[:limit]
+            # If NewsAPI empty: fetch last 20 from DB
+            try:
+                cached = self._get_stored_news(limit)
+                if cached and len(cached) > 0:
+                    return cached
+            except Exception:
+                pass
+            # Final fallback: hardcoded stories if nothing else is present
+            return self.fallback_news[:limit]
         except Exception as e:
             logger.error(f"Error fetching news: {e}")
             return self.fallback_news[:limit]
