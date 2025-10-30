@@ -18,7 +18,8 @@ class NewsService:
         # Block these website domains
         self.blocked_domains = [
             "twistedsifter.com",
-            "autoexpress.co.uk"
+            "autoexpress.co.uk",
+            "oklahoman.com"
         ]
         
     def _is_allowed_article(self, article: Dict[str, Any]) -> bool:
@@ -340,3 +341,4 @@ class NewsService:
             'ICICIBANK': 'ICICI Bank Limited'
         }
         return company_names.get(symbol.upper(), symbol)
+
