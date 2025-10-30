@@ -43,9 +43,13 @@ class StockService:
                 'Authorization': f'Bearer {self.upstox_api_key}'
             }
             
-            # Get market quote
+            # Upstox expects instruments in the format e.g. "NSE_EQ|RELIANCE"
+            normalized = symbol.upper().replace('.NS', '').replace('.BO', '')
+            instrument = f"NSE_EQ|{normalized}"
+
+            # Get market quote (LTP)
             url = f"{self.upstox_base_url}/market-quote/ltp"
-            params = {'symbol': symbol}
+            params = {'symbol': instrument}
             
             response = requests.get(url, headers=headers, params=params, timeout=10)
             response.raise_for_status()
@@ -56,7 +60,7 @@ class StockService:
             if 'data' in data and data['data']:
                 quote_data = data['data'][0]
                 return {
-                    'symbol': symbol,
+                    'symbol': normalized,
                     'current_price': quote_data.get('ltp', 0),
                     'change': quote_data.get('change', 0),
                     'change_percent': quote_data.get('change_percent', 0),
