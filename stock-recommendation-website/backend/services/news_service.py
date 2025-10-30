@@ -23,8 +23,9 @@ class NewsService:
             "tvline.com",
             "variety.com",
             "allears.net",
-            "pcgamers.com",
-            "nintendolife.com"
+            "pcgamer.com",
+            "nintendolife.com",
+            "indiewire.com"
         ]
         
     def _is_allowed_article(self, article: Dict[str, Any]) -> bool:
@@ -346,5 +347,6 @@ class NewsService:
             'ICICIBANK': 'ICICI Bank Limited'
         }
         return company_names.get(symbol.upper(), symbol)
+
 
 
