@@ -110,6 +110,32 @@ class NewsService:
                 articles = []
                 for article in data['articles'][:limit]:
                     sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
+
+                    # Store in database
+                    try:
+                        published = article.get('publishedAt')
+                        published_dt = None
+                        if published:
+                            try:
+                                published_dt = datetime.fromisoformat(published.replace('Z', '+00:00'))
+                            except Exception:
+                                published_dt = datetime.utcnow()
+                        news_article = NewsArticle(
+                            title=article['title'],
+                            description=article.get('description', ''),
+                            content=article.get('content', ''),
+                            url=article.get('url', ''),
+                            source=article.get('source', {}).get('name', ''),
+                            published_at=published_dt,
+                            sentiment_score=sentiment_score,
+                            sentiment_label=sentiment_label
+                        )
+                        db.session.add(news_article)
+                        db.session.commit()
+                    except Exception as e:
+                        logger.warning(f"Failed to store top headline: {e}")
+                        db.session.rollback()
+
                     articles.append({
                         'title': article['title'],
                         'description': article.get('description', ''),
