@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Optional
 import os
 from models import NewsArticle
 from app import db
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -13,39 +14,41 @@ class NewsService:
         self.news_api_key = os.getenv('NEWS_API_KEY')
         self.news_base_url = 'https://newsapi.org/v2'
         self.fallback_news = self._get_fallback_news()
+
+        # Block these website domains
+        self.blocked_domains = [
+            "twistedsifter.com",
+            "autoexpress.co.uk"
+        ]
+        
+    def _is_allowed_article(self, article: Dict[str, Any]) -> bool:
+        """Return False if the article domain is blocked"""
+        url = article.get("url", "")
+        domain = urlparse(url).netloc.lower()
+
+        for blocked in self.blocked_domains:
+            if blocked in domain:
+                return False
+        return True
         
     def get_latest_news(self, limit: int = 10) -> List[Dict[str, Any]]:
-    """Get latest India business market news with sentiment analysis, fallback to global finance news if none."""
-    try:
-        EXCLUDED_SOURCES = ['twistedsifter.com', 'rand.org', 'autoexpress.co.uk']
-        def keep(article):
-            src = (article.get('source') or '').lower()
-            url = (article.get('url') or '').lower()
-            for excl in EXCLUDED_SOURCES:
-                if excl in src or excl in url:
-                    return False
-            return True
+        try:
+            if self.news_api_key:
+                news = self._fetch_top_headlines_india(limit)
+                if news and len(news) > 0:
+                    return news
 
-        if self.news_api_key:
-            news = self._fetch_top_headlines_india(limit * 3)  # Fetch extra for filtering
-            if news:
-                filtered = [a for a in news if keep(a)]
-                if filtered:
-                    return filtered[:limit]
-            news = self._fetch_news_from_api(limit * 3)
-            if news:
-                filtered = [a for a in news if keep(a)]
-                if filtered:
-                    return filtered[:limit]
-        return []
-    except Exception as e:
-        logger.error(f"Error fetching news: {e}")
-        return []
+                news = self._fetch_news_from_api(limit)
+                if news and len(news) > 0:
+                    return news
+
+            return []
+        except Exception as e:
+            logger.error(f"Error fetching news: {e}")
+            return []
     
     def _fetch_news_from_api(self, limit: int) -> Optional[List[Dict[str, Any]]]:
-        """Fetch news from NewsAPI"""
         try:
-            # Get news about stock market, finance, economy
             query = "stock market OR finance OR economy OR investing"
             url = f"{self.news_base_url}/everything"
             
@@ -59,16 +62,18 @@ class NewsService:
             
             response = requests.get(url, params=params, timeout=10)
             response.raise_for_status()
-            
             data = response.json()
             
             if 'articles' in data:
                 articles = []
                 for article in data['articles'][:limit]:
-                    # Analyze sentiment
+
+                    # Skip blocked domains
+                    if not self._is_allowed_article(article):
+                        continue
+
                     sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
                     
-                    # Store in database
                     news_article = NewsArticle(
                         title=article['title'],
                         description=article.get('description', ''),
@@ -105,7 +110,6 @@ class NewsService:
         return None
 
     def _fetch_top_headlines_india(self, limit: int) -> Optional[List[Dict[str, Any]]]:
-        """Fetch India-focused business headlines using NewsAPI top-headlines."""
         try:
             url = f"{self.news_base_url}/top-headlines"
             params = {
@@ -120,9 +124,13 @@ class NewsService:
             if 'articles' in data:
                 articles = []
                 for article in data['articles'][:limit]:
+
+                    # Skip blocked domains
+                    if not self._is_allowed_article(article):
+                        continue
+
                     sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
 
-                    # Store in database
                     try:
                         published = article.get('publishedAt')
                         published_dt = None
@@ -162,23 +170,17 @@ class NewsService:
         return None
     
     def _analyze_sentiment(self, text: str) -> tuple:
-        """Analyze sentiment of text using simple keyword-based approach"""
         try:
-            # Simple keyword-based sentiment analysis
-            # In production, you'd use a proper ML model like FinBERT
-            
             positive_keywords = [
                 'surge', 'jump', 'rise', 'gain', 'profit', 'earnings', 'growth',
                 'positive', 'bullish', 'rally', 'breakout', 'strong', 'up'
             ]
-            
             negative_keywords = [
                 'fall', 'drop', 'decline', 'loss', 'crash', 'bearish', 'weak',
                 'negative', 'down', 'plunge', 'slump', 'concern', 'risk'
             ]
             
             text_lower = text.lower()
-            
             positive_count = sum(1 for word in positive_keywords if word in text_lower)
             negative_count = sum(1 for word in negative_keywords if word in text_lower)
             
@@ -194,7 +196,6 @@ class NewsService:
             return 0.0, 'neutral'
     
     def _get_stored_news(self, limit: int) -> List[Dict[str, Any]]:
-        """Get news from database"""
         try:
             articles = NewsArticle.query.order_by(NewsArticle.published_at.desc()).limit(limit).all()
             return [article.to_dict() for article in articles]
@@ -203,7 +204,6 @@ class NewsService:
             return self.fallback_news[:limit]
     
     def _get_fallback_news(self) -> List[Dict[str, Any]]:
-        """Get fallback news when APIs fail"""
         return [
             {
                 'title': 'Stock Market Shows Resilience Amid Economic Challenges',
@@ -253,11 +253,8 @@ class NewsService:
         ]
     
     def get_news_for_symbol(self, symbol: str, limit: int = 5) -> List[Dict[str, Any]]:
-        """Get news specific to a stock symbol"""
         try:
-            # India-only news for the specific company/symbol
             if self.news_api_key:
-                # Try top-headlines country=in first
                 try:
                     url = f"{self.news_base_url}/top-headlines"
                     params = {
@@ -272,6 +269,11 @@ class NewsService:
                     if 'articles' in data and data['articles']:
                         articles = []
                         for article in data['articles'][:limit]:
+
+                            # Skip blocked domains
+                            if not self._is_allowed_article(article):
+                                continue
+
                             sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
                             articles.append({
                                 'title': article['title'],
@@ -286,7 +288,6 @@ class NewsService:
                 except Exception:
                     pass
 
-                # Fallback: everything search but bias to India via query terms
                 query = f'("{symbol}" OR "{self._get_company_name(symbol)}") AND (India OR NSE OR BSE)'
                 url = f"{self.news_base_url}/everything"
                 params = {
@@ -302,6 +303,11 @@ class NewsService:
                 if 'articles' in data:
                     articles = []
                     for article in data['articles'][:limit]:
+
+                        # Skip blocked domains
+                        if not self._is_allowed_article(article):
+                            continue
+
                         sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
                         articles.append({
                             'title': article['title'],
@@ -314,7 +320,6 @@ class NewsService:
                         })
                     return articles
             
-            # Fallback to general market news
             return self.get_latest_news(limit)
             
         except Exception as e:
@@ -322,8 +327,6 @@ class NewsService:
             return self.get_latest_news(limit)
     
     def _get_company_name(self, symbol: str) -> str:
-        """Get company name from symbol (simplified)"""
-        # This is a simplified mapping - in production you'd have a proper database
         company_names = {
             'AAPL': 'Apple Inc',
             'MSFT': 'Microsoft Corporation',
@@ -336,6 +339,4 @@ class NewsService:
             'HDFC': 'HDFC Bank Limited',
             'ICICIBANK': 'ICICI Bank Limited'
         }
-        
         return company_names.get(symbol.upper(), symbol)
-
