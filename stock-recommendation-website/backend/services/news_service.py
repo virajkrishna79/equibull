@@ -15,14 +15,17 @@ class NewsService:
         self.fallback_news = self._get_fallback_news()
         
     def get_latest_news(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """Get latest India business market news with sentiment analysis"""
+        """Get latest India business market news with sentiment analysis, fallback to global finance news if none."""
         try:
             if self.news_api_key:
-                # Only India business headlines
                 news = self._fetch_top_headlines_india(limit)
                 if news and len(news) > 0:
                     return news
-            # If NewsAPI has nothing, show nothing (do NOT fallback)
+                # fallback to global search if India headlines are empty
+                news = self._fetch_news_from_api(limit)
+                if news and len(news) > 0:
+                    return news
+            # If no live news, show nothing
             return []
         except Exception as e:
             logger.error(f"Error fetching news: {e}")
