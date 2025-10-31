@@ -18,17 +18,18 @@ class EmailService:
         self.email_password = os.getenv('EMAIL_PASSWORD')
         self.from_name = os.getenv('FROM_NAME', 'Stock Recommendation System')
         
+    def send_email(self, to_email: str, subject: str, html_content: str) -> bool:
+        """Public wrapper for _send_email"""
+        return self._send_email(to_email, subject, html_content)
+
     def send_confirmation_email(self, email: str) -> bool:
-        """Send confirmation email to new subscriber"""
         try:
             if not self._check_email_config():
                 logger.warning("Email configuration not set up")
                 return False
             
             subject = "Welcome to Stock Recommendations!"
-            
             html_content = self._get_confirmation_email_template(email)
-            
             return self._send_email(email, subject, html_content)
             
         except Exception as e:
@@ -36,38 +37,30 @@ class EmailService:
             return False
     
     def send_daily_recommendations(self) -> bool:
-        """Send daily stock recommendations to all active subscribers"""
         try:
             if not self._check_email_config():
                 logger.warning("Email configuration not set up")
                 return False
             
-            # Get active subscribers
             active_users = User.query.filter_by(is_active=True).all()
             if not active_users:
                 logger.info("No active subscribers found")
                 return True
             
-            # Get latest recommendations
             recommendations = StockRecommendation.query.order_by(
                 StockRecommendation.created_at.desc()
             ).limit(10).all()
             
             if not recommendations:
-                logger.info("No recommendations found to send")
+                logger.info("No recommendations to send")
                 return True
             
-            # Send emails to all subscribers
             success_count = 0
             for user in active_users:
-                try:
-                    if self._send_recommendation_email(user.email, recommendations):
-                        success_count += 1
-                        # Update last email sent timestamp
-                        user.last_email_sent = datetime.utcnow()
-                        db.session.commit()
-                except Exception as e:
-                    logger.error(f"Failed to send email to {user.email}: {e}")
+                if self._send_recommendation_email(user.email, recommendations):
+                    success_count += 1
+                    user.last_email_sent = datetime.utcnow()
+                    db.session.commit()
             
             logger.info(f"Sent daily recommendations to {success_count}/{len(active_users)} subscribers")
             return success_count > 0
@@ -77,69 +70,55 @@ class EmailService:
             return False
     
     def send_recommendation_update(self, symbol: str, recommendation: Dict[str, Any]) -> bool:
-        """Send immediate recommendation update for a specific stock"""
         try:
             if not self._check_email_config():
-                logger.warning("Email configuration not set up")
+                logger.warning("Email config missing")
                 return False
             
-            # Get active subscribers
             active_users = User.query.filter_by(is_active=True).all()
             if not active_users:
                 return True
             
             subject = f"Stock Alert: {symbol} - {recommendation['recommendation']}"
-            
             html_content = self._get_recommendation_email_template(symbol, [recommendation])
             
             success_count = 0
             for user in active_users:
-                try:
-                    if self._send_email(user.email, subject, html_content):
-                        success_count += 1
-                except Exception as e:
-                    logger.error(f"Failed to send alert to {user.email}: {e}")
+                if self._send_email(user.email, subject, html_content):
+                    success_count += 1
             
-            logger.info(f"Sent {symbol} alert to {success_count}/{len(active_users)} subscribers")
+            logger.info(f"Sent alert to {success_count}/{len(active_users)}")
             return success_count > 0
             
         except Exception as e:
-            logger.error(f"Error sending recommendation update: {e}")
+            logger.error(f"Error sending update: {e}")
             return False
     
     def _send_recommendation_email(self, email: str, recommendations: List[StockRecommendation]) -> bool:
-        """Send recommendation email to a specific user"""
         try:
             subject = f"Daily Stock Recommendations - {datetime.now().strftime('%Y-%m-%d')}"
-            
             html_content = self._get_recommendation_email_template("Daily Update", recommendations)
-            
             return self._send_email(email, subject, html_content)
-            
         except Exception as e:
             logger.error(f"Error sending recommendation email: {e}")
             return False
     
     def _send_email(self, to_email: str, subject: str, html_content: str) -> bool:
-        """Send email using SMTP"""
         try:
-            # Create message
             msg = MIMEMultipart('alternative')
             msg['Subject'] = subject
             msg['From'] = f"{self.from_name} <{self.email_address}>"
             msg['To'] = to_email
             
-            # Attach HTML content
             html_part = MIMEText(html_content, 'html')
             msg.attach(html_part)
             
-            # Send email
             with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
                 server.starttls()
                 server.login(self.email_address, self.email_password)
                 server.send_message(msg)
             
-            logger.info(f"Email sent successfully to {to_email}")
+            logger.info(f"Email sent to {to_email}")
             return True
             
         except Exception as e:
@@ -147,13 +126,16 @@ class EmailService:
             return False
     
     def _check_email_config(self) -> bool:
-        """Check if email configuration is properly set up"""
         return all([
             self.email_address,
             self.email_password,
             self.smtp_server,
             self.smtp_port
         ])
+    
+    # Templates remain unchanged below
+    # ...
+
     
     def _get_confirmation_email_template(self, email: str) -> str:
         """Generate confirmation email HTML template"""
@@ -265,3 +247,4 @@ class EmailService:
         </body>
         </html>
         """
+
