@@ -1,0 +1,16 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = ""
+
+[deploy]
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+# ---- Cron trigger ----
+[cron.daily_model]
+schedule = "0 21 * * 1-5"
+command = """
+curl -X POST \
+ -H "X-CRON-SECRET: ${CRON_SECRET}" \
+ https://${RAILWAY_PUBLIC_DOMAIN}/.railway/cron/run-daily-model
+"""
