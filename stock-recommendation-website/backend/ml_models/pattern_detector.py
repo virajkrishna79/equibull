@@ -15,6 +15,12 @@ tickers = [
 ]
 
 tickers = list(set(tickers))  # remove duplicates
+class PatternDetector:
+    def __init__(self):
+        pass
+
+    def detect(self, df):
+        return detect_patterns(df)
 
 def screen_stocks():
     results = []
@@ -67,3 +73,4 @@ def screen_stocks():
 if __name__ == "__main__":
     matches = screen_stocks()
     print(matches)
+
