@@ -5,34 +5,34 @@ from datetime import datetime
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key-here')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///stock_recommendations.db')
+
+db_url = os.getenv('DATABASE_URL')
+
+# Fix postgres:// -> postgresql://
+if db_url and db_url.startswith('postgres://'):
+    db_url = db_url.replace('postgres://', 'postgresql://', 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Initialize extensions
 db = SQLAlchemy(app)
 CORS(app)
 
-# ✅ Import your User model after db initialization
 from models.user import User
-
-# Import routes after db init
 from api.routes import main_bp, api_bp
 
-# Register blueprints
 app.register_blueprint(main_bp)
 app.register_blueprint(api_bp, url_prefix='/api')
 
-# ✅ Ensure database tables exist (important for Railway/Gunicorn)
 try:
     with app.app_context():
         db.create_all()
-except Exception:
-    pass
+except Exception as e:
+    print("DB init error:", e)
 
 @app.errorhandler(404)
 def not_found(error):
