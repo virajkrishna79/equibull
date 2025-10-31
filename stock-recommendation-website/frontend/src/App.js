@@ -18,8 +18,6 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/news" element={<NewsPage />} />
-            <Route path="/analysis/:symbol" element={<StockAnalysisPage />} />
-            <Route path="/analysis" element={<StockAnalysisPage />} />
           </Routes>
         </main>
         <Toaster
@@ -52,3 +50,4 @@ function App() {
 }
 
 export default App;
+
