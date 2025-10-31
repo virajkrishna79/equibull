@@ -44,16 +44,16 @@ def about():
     return jsonify({'app': 'stock-recommendation-api', 'about': 'Backend service for stock recommendations and news'})
 
 @api_bp.route('/subscribe', methods=['POST'])
+@api_bp.route('/subscribe', methods=['POST'])
 def subscribe():
     """Subscribe user to stock recommendations"""
     try:
-        data = request.get_json()
-        email = data.get('email')
-        
+        data = request.get_json(silent=True) or {}
+        email = data.get('email', '').strip().lower()
+
         if not email:
             return jsonify({'error': 'Email is required'}), 400
-        
-        # Check if user already exists
+
         existing_user = User.query.filter_by(email=email).first()
         if existing_user:
             if existing_user.is_active:
@@ -62,24 +62,24 @@ def subscribe():
                 existing_user.is_active = True
                 db.session.commit()
                 return jsonify({'message': 'Subscription reactivated successfully'}), 200
-        
-        # Create new user
+
         new_user = User(email=email)
         db.session.add(new_user)
         db.session.commit()
-        
-        # Send confirmation email
+
+        # optional confirmation email
         try:
             email_service.send_confirmation_email(email)
         except Exception as e:
             logger.warning(f"Failed to send confirmation email: {e}")
-        
+
         return jsonify({'message': 'Subscription successful!'}), 201
-        
+
     except Exception as e:
         logger.error(f"Error in subscription: {e}")
         db.session.rollback()
         return jsonify({'error': 'Internal server error'}), 500
+
 
 @api_bp.route('/unsubscribe', methods=['POST'])
 def unsubscribe():
@@ -204,3 +204,4 @@ def cron_ml_screener():
         return jsonify({'error': 'Unauthorized'}), 401
     results = screen_stocks()[:5]  # Get top 5 matches
     return jsonify({'ok': True, 'count': len(results), 'matches': results})
+
