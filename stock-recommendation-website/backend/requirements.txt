@@ -18,6 +18,8 @@ blinker==1.6.3
 psycopg2-binary==2.9.9
 tqdm==4.66.4
 nselib==1.9
+python-dateutil==2.8.2
+pandas-market-calendars==4.4.2
 
 
 
