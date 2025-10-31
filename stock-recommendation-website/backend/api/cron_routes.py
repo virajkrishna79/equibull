@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 from app import db
 from models.user import User
 from services.email_service import EmailService
-from api.ml_models.pattern_detector import PatternDetector
+from ml_models.pattern_detector import PatternDetector
 import yfinance as yf
 import os
 
