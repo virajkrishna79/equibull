@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from nselib import capital_market
 
 # ---------------------------------------------------------
-# Helper to fetch last N candles
+# Fetch last N candles (compatible with screener)
 # ---------------------------------------------------------
 def fetch_recent_data(symbol, n=50):
     end = datetime.now()
@@ -17,16 +17,27 @@ def fetch_recent_data(symbol, n=50):
         )
         if df is None or df.empty:
             return None
-        df['Close'] = df['Close Price']
-        df['Open'] = df['Open Price']
-        df['High'] = df['High Price']
-        df['Low']  = df['Low Price']
+
+        df = df.rename(columns={
+            "OPEN_PRICE": "Open",
+            "HIGH_PRICE": "High",
+            "LOW_PRICE": "Low",
+            "CLOSE_PRICE": "Close",
+            "TTL_TRD_QNTY": "Volume",
+            "CH_TIMESTAMP": "Date"
+        })
+
+        df["Date"] = pd.to_datetime(df["Date"])
+        df = df.set_index("Date")
+        df = df[["Open", "High", "Low", "Close", "Volume"]].sort_index()
+
         return df.tail(n)
+
     except:
         return None
 
 # ---------------------------------------------------------
-# Very basic pattern examples
+# Pattern examples
 # ---------------------------------------------------------
 def bullish_engulfing(df):
     if len(df) < 2:
