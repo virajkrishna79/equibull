@@ -29,7 +29,12 @@ class NewsService:
             "commonsensewithmoney.com",
             "forbes.com",
             "redflagdeals.com",
-            "bringatrailer.com"
+            "bringatrailer.com",
+            "irishtimes.com",
+            "ozbargain.com.au",
+            "wccftech.com",
+            "globalnewswire.com",
+            "notebookcheck.net"
         ]
         
     def _is_allowed_article(self, article: Dict[str, Any]) -> bool:
@@ -351,6 +356,7 @@ class NewsService:
             'ICICIBANK': 'ICICI Bank Limited'
         }
         return company_names.get(symbol.upper(), symbol)
+
 
 
 
