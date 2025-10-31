@@ -10,13 +10,13 @@ load_dotenv()
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key-here')
 
-db_url = os.getenv('DATABASE_URL')
-
-# Fix postgres:// -> postgresql://
-if db_url and db_url.startswith('postgres://'):
-    db_url = db_url.replace('postgres://', 'postgresql://', 1)
+# Fix old postgres:// URIs and switch to psycopg driver
+db_url = os.getenv('DATABASE_URL', 'sqlite:///stock_recommendations.db')
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql+psycopg://")
 
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -47,3 +47,4 @@ if __name__ == '__main__':
         db.create_all()
     port = int(os.getenv('PORT', '5000'))
     app.run(debug=True, host='0.0.0.0', port=port)
+
