@@ -43,13 +43,6 @@ const HomePage = () => {
           <p className="text-xl md:text-2xl mb-8 text-blue-100 max-w-3xl mx-auto">
             Get intelligent stock insights powered by machine learning, technical analysis, and market sentiment
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              to="/analysis"
-              className="btn-outline bg-white text-primary-600 hover:bg-primary-50 px-8 py-3 text-lg font-semibold"
-            >
-              Analyze Stocks
-              <ArrowRight className="ml-2 w-5 h-5" />
             </Link>
             <button className="btn-secondary px-8 py-3 text-lg font-semibold">
               Learn More
@@ -167,13 +160,6 @@ const HomePage = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              to="/analysis"
-              className="btn-primary px-8 py-3 text-lg font-semibold"
-            >
-              Start Analyzing
-              <ArrowRight className="ml-2 w-5 h-5" />
-            </Link>
-            <Link
               to="/about"
               className="btn-outline border-white text-white hover:bg-white hover:text-gray-900 px-8 py-3 text-lg font-semibold"
             >
@@ -187,3 +173,4 @@ const HomePage = () => {
 };
 
 export default HomePage;
+
