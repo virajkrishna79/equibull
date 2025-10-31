@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key-here')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///stock_recommendations.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -18,19 +17,22 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 CORS(app)
 
-# ✅ Import models so SQLAlchemy knows them
-from models import Subscriber  # <-- IMPORTANT
+# ✅ Import your User model after db initialization
+from models.user import User
 
-# Import routes AFTER db + models are initialized
+# Import routes after db init
 from api.routes import main_bp, api_bp
 
 # Register blueprints
 app.register_blueprint(main_bp)
 app.register_blueprint(api_bp, url_prefix='/api')
 
-# ✅ Ensure database tables exist in production (Gunicorn)
-with app.app_context():
-    db.create_all()
+# ✅ Ensure database tables exist (important for Railway/Gunicorn)
+try:
+    with app.app_context():
+        db.create_all()
+except Exception:
+    pass
 
 @app.errorhandler(404)
 def not_found(error):
@@ -40,7 +42,6 @@ def not_found(error):
 def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
 
-# ✅ Local dev server
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
