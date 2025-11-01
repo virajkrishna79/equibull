@@ -20,7 +20,7 @@ tqdm==4.66.4
 nselib==1.9
 python-dateutil==2.8.2
 pandas-market-calendars==4.4.2
-
+nsefetch==1.0.7  
 
 
 
