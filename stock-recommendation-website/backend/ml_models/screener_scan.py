@@ -3,8 +3,7 @@ import numpy as np
 import time
 import random
 from datetime import datetime, timedelta
-from nselib import capital_market
-from nselib import market_data
+from nsefetch import nsefetch
 
 # ---------------------------------------------------------
 # TICKERS
@@ -27,30 +26,32 @@ tickers = list(set([
 ]))
 
 # ---------------------------------------------------------
-# Fetch OHLC using NSELIB (deliverable & price-volume)
+# Fetch OHLC using nsefetch
 # ---------------------------------------------------------
 def fetch_ohlc(symbol, months=18):
     end = datetime.now()
     start = end - timedelta(days=30 * months)
 
-    try:
-        df = capital_market.price_volume_and_deliverable_position_data(
-            symbol=symbol,
-            from_date=start.strftime("%d-%m-%Y"),
-            to_date=end.strftime("%d-%m-%Y")
-        )
+    url = (
+        f"https://www.nseindia.com/api/historical/cm/equity?"
+        f"symbol={symbol}&series=[\"EQ\"]&from={start.strftime('%d-%m-%Y')}"
+        f"&to={end.strftime('%d-%m-%Y')}&csv=true"
+    )
 
-        if df is None or df.empty:
+    try:
+        data = nsefetch(url)
+        if not data or "data" not in data or not data["data"]:
             print(f"⚠️ No OHLC for {symbol}")
             return None
 
+        df = pd.DataFrame(data["data"])
         df = df.rename(columns={
             "CH_TIMESTAMP": "Date",
-            "OPEN_PRICE": "Open",
-            "HIGH_PRICE": "High",
-            "LOW_PRICE": "Low",
-            "CLOSE_PRICE": "Close",
-            "TTL_TRD_QNTY": "Volume"
+            "CH_OPENING_PRICE": "Open",
+            "CH_TRADE_HIGH_PRICE": "High",
+            "CH_TRADE_LOW_PRICE": "Low",
+            "CH_CLOSING_PRICE": "Close",
+            "CH_TOT_TRADED_QTY": "Volume",
         })
 
         df["Date"] = pd.to_datetime(df["Date"])
@@ -63,11 +64,13 @@ def fetch_ohlc(symbol, months=18):
         return None
 
 # ---------------------------------------------------------
-# Fetch market cap table once
+# Fetch Market Caps (Full NSE Table)
 # ---------------------------------------------------------
 def fetch_market_caps():
     try:
-        df = market_data.equity_market_capitalization()
+        url = "https://www.nseindia.com/api/equity-market-capitalization"
+        data = nsefetch(url)
+        df = pd.DataFrame(data["data"])
         df = df.rename(columns={"symbol": "Ticker"})
         df = df.set_index("Ticker")
         return df
@@ -91,14 +94,13 @@ def screen_stocks():
         if data is None or len(data) < 200:
             continue
 
-        # indicators
-        data["DMA50"]  = data["Close"].rolling(50).mean()
+        data["DMA50"] = data["Close"].rolling(50).mean()
         data["52W_High"] = data["Close"].rolling(252).max()
 
         try:
             current_price = float(data["Close"].iloc[-1])
-            dma50        = float(data["DMA50"].iloc[-1])
-            high_52w     = float(data["52W_High"].iloc[-1])
+            dma50 = float(data["DMA50"].iloc[-1])
+            high_52w = float(data["52W_High"].iloc[-1])
         except:
             continue
 
@@ -108,7 +110,7 @@ def screen_stocks():
         down_from_high = (high_52w - current_price) / high_52w * 100
 
         if ticker not in mcaps.index:
-            print(f"⚠️ No MCap for {ticker}")
+            print(f"⚠️ No MCap data for {ticker}")
             continue
 
         try:
@@ -116,7 +118,7 @@ def screen_stocks():
         except:
             continue
 
-        # Filters
+        # FILTERS
         if (
             market_cap > 1000 and
             current_price < 500 and
@@ -132,22 +134,17 @@ def screen_stocks():
                 "MCap(Cr)": round(market_cap, 1)
             })
 
-        # anti-ban jitter
+        # anti-block jitter
         time.sleep(0.25 + random.random() * 0.25)
 
-    return output
+    return sorted(output, key=lambda x: x["%DownFromHigh"])
 
-# ---------------------------------------------------------
-# ENTRYPOINT
 # ---------------------------------------------------------
 def run_screener():
     results = screen_stocks()
     print(f"✅ Screener found {len(results)} stocks.")
     return results
 
-# ---------------------------------------------------------
-# Manual debug run
-# ---------------------------------------------------------
 if __name__ == "__main__":
     out = run_screener()
     print(out)
