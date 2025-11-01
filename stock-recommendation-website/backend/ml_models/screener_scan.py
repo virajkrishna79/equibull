@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 import time
 import random
-from nsepython import nsefetch
 from datetime import datetime, timedelta
 
 # ---------------------------------------------------------
@@ -157,3 +156,4 @@ def run_screener():
 if __name__ == "__main__":
     out = run_screener()
     print(out)
+
