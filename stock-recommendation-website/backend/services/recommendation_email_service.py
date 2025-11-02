@@ -4,14 +4,14 @@ from typing import List, Dict, Any
 from datetime import datetime
 from models import User
 from app import db
-from services.email_service import EmailService
+from services.resend_email_service import ResendEmailService  # ← CHANGE THIS
 from services.recommendation_service import RecommendationService
 
 logger = logging.getLogger(__name__)
 
 class RecommendationEmailService:
     def __init__(self):
-        self.email_service = EmailService()
+        self.email_service = ResendEmailService()  # ← CHANGE THIS
         self.recommendation_service = RecommendationService()
     
     def send_top_stocks_to_users(self, top_n: int = 5) -> Dict[str, Any]:
@@ -71,17 +71,20 @@ class RecommendationEmailService:
             return {"success": False, "sent_count": 0, "total_users": 0, "error": str(e)}
     
     def _send_top_stocks_email(self, user: User, top_stocks: List[Dict[str, Any]]) -> bool:
-        """Send top stocks email to a specific user"""
+        """Send top stocks email to a specific user using Resend"""
         try:
             subject = f"🚀 Top {len(top_stocks)} Stock Picks - {datetime.now().strftime('%Y-%m-%d')}"
-            
             html_content = self._create_top_stocks_email_content(user, top_stocks)
             
+            # This now uses Resend API instead of SMTP
             return self.email_service.send_email(user.email, subject, html_content)
             
         except Exception as e:
             logger.error(f"Failed to send top stocks email to {user.email}: {e}")
             return False
+    
+    # Keep your existing _create_top_stocks_email_content method unchanged
+    # ... (your existing HTML template code)
     
     def _create_top_stocks_email_content(self, user: User, top_stocks: List[Dict[str, Any]]) -> str:
         """Create HTML email content for top stocks"""
