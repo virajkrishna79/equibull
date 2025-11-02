@@ -272,3 +272,50 @@ def cron_send_daily_top_stocks():
             'message': 'Internal server error',
             'error': str(e)
         }), 500
+
+# Add these TWO endpoints to your existing routes.py
+
+@api_bp.route('/debug/users', methods=['GET'])
+def debug_users():
+    """Debug endpoint to check users in database"""
+    try:
+        users = User.query.all()
+        return jsonify({
+            'total_users': len(users),
+            'active_users': len([u for u in users if u.is_active]),
+            'users': [{'email': u.email, 'active': u.is_active} for u in users]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@api_bp.route('/send-top-stocks', methods=['POST'])
+def send_top_stocks():
+    """Send top stocks from screener to all subscribed users"""
+    try:
+        top_n = request.json.get('top_n', 5) if request.json else 5
+        
+        from services.recommendation_email_service import RecommendationEmailService
+        email_service = RecommendationEmailService()
+        result = email_service.send_top_stocks_to_users(top_n=top_n)
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': f"Successfully sent top {result['top_stocks_count']} stocks to {result['sent_count']} users",
+                'data': result
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Failed to send emails',
+                'error': result['error']
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Error sending top stocks: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error',
+            'error': str(e)
+        }), 500
+
