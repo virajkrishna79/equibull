@@ -4,6 +4,7 @@ from services.stock_service import StockService
 from services.news_service import NewsService
 from services.recommendation_service import RecommendationService
 from services.email_service import EmailService
+from services.recommendation_email_service import RecommendationEmailService  # ADD THIS
 from app import db
 import logging
 import os
@@ -44,7 +45,6 @@ def about():
     return jsonify({'app': 'stock-recommendation-api', 'about': 'Backend service for stock recommendations and news'})
 
 @api_bp.route('/subscribe', methods=['POST'])
-@api_bp.route('/subscribe', methods=['POST'])
 def subscribe():
     """Subscribe user to stock recommendations"""
     try:
@@ -79,7 +79,6 @@ def subscribe():
         logger.error(f"Error in subscription: {e}")
         db.session.rollback()
         return jsonify({'error': 'Internal server error'}), 500
-
 
 @api_bp.route('/unsubscribe', methods=['POST'])
 def unsubscribe():
@@ -150,6 +149,41 @@ def get_stock_data(symbol):
         logger.error(f"Error fetching stock data for {symbol}: {e}")
         return jsonify({'error': f'Failed to fetch data for {symbol}'}), 500
 
+# ADD THIS NEW ROUTE
+@api_bp.route('/send-top-stocks', methods=['POST'])
+def send_top_stocks():
+    """Send top stocks from screener to all subscribed users"""
+    try:
+        # Optional: Add authentication for this endpoint
+        # if request.headers.get('X-API-SECRET') != os.getenv('API_SECRET'):
+        #     return jsonify({'error': 'Unauthorized'}), 401
+        
+        top_n = request.json.get('top_n', 5) if request.json else 5
+        
+        email_service = RecommendationEmailService()
+        result = email_service.send_top_stocks_to_users(top_n=top_n)
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': f"Successfully sent top {result['top_stocks_count']} stocks to {result['sent_count']} users",
+                'data': result
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Failed to send emails',
+                'error': result['error']
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Error sending top stocks: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error',
+            'error': str(e)
+        }), 500
+
 @api_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
@@ -205,3 +239,36 @@ def cron_ml_screener():
     results = screen_stocks()[:5]  # Get top 5 matches
     return jsonify({'ok': True, 'count': len(results), 'matches': results})
 
+# ADD THIS NEW CRON ENDPOINT
+@api_bp.route('/cron/send-daily-top-stocks', methods=['POST'])
+def cron_send_daily_top_stocks():
+    """Secure endpoint to send daily top stocks to all subscribers"""
+    try:
+        if request.headers.get('X-CRON-SECRET') != os.getenv('CRON_SECRET'):
+            return jsonify({'error': 'Unauthorized'}), 401
+
+        top_n = request.json.get('top_n', 5) if request.json else 5
+        
+        email_service = RecommendationEmailService()
+        result = email_service.send_top_stocks_to_users(top_n=top_n)
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': f"Daily top stocks sent to {result['sent_count']} users",
+                'data': result
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Failed to send daily emails',
+                'error': result['error']
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Error in daily top stocks cron: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error',
+            'error': str(e)
+        }), 500
