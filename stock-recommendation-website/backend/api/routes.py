@@ -4,7 +4,7 @@ from services.stock_service import StockService
 from services.news_service import NewsService
 from services.recommendation_service import RecommendationService
 from services.email_service import EmailService
-from services.recommendation_email_service import RecommendationEmailService  # ADD THIS
+from services.recommendation_email_service import RecommendationEmailService
 from app import db
 import logging
 import os
@@ -149,15 +149,11 @@ def get_stock_data(symbol):
         logger.error(f"Error fetching stock data for {symbol}: {e}")
         return jsonify({'error': f'Failed to fetch data for {symbol}'}), 500
 
-# ADD THIS NEW ROUTE
+# KEEP ONLY ONE send-top-stocks ROUTE - REMOVE THE DUPLICATE!
 @api_bp.route('/send-top-stocks', methods=['POST'])
 def send_top_stocks():
     """Send top stocks from screener to all subscribed users"""
     try:
-        # Optional: Add authentication for this endpoint
-        # if request.headers.get('X-API-SECRET') != os.getenv('API_SECRET'):
-        #     return jsonify({'error': 'Unauthorized'}), 401
-        
         top_n = request.json.get('top_n', 5) if request.json else 5
         
         email_service = RecommendationEmailService()
@@ -273,8 +269,7 @@ def cron_send_daily_top_stocks():
             'error': str(e)
         }), 500
 
-# Add these TWO endpoints to your existing routes.py
-
+# ADD DEBUG ENDPOINT
 @api_bp.route('/debug/users', methods=['GET'])
 def debug_users():
     """Debug endpoint to check users in database"""
@@ -287,35 +282,3 @@ def debug_users():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-@api_bp.route('/send-top-stocks', methods=['POST'])
-def send_top_stocks():
-    """Send top stocks from screener to all subscribed users"""
-    try:
-        top_n = request.json.get('top_n', 5) if request.json else 5
-        
-        from services.recommendation_email_service import RecommendationEmailService
-        email_service = RecommendationEmailService()
-        result = email_service.send_top_stocks_to_users(top_n=top_n)
-        
-        if result['success']:
-            return jsonify({
-                'success': True,
-                'message': f"Successfully sent top {result['top_stocks_count']} stocks to {result['sent_count']} users",
-                'data': result
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'message': 'Failed to send emails',
-                'error': result['error']
-            }), 500
-            
-    except Exception as e:
-        logger.error(f"Error sending top stocks: {e}")
-        return jsonify({
-            'success': False,
-            'message': 'Internal server error',
-            'error': str(e)
-        }), 500
-
