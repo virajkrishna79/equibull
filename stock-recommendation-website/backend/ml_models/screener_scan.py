@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta
 
 # Import from our data file
-from stock_data import get_stock_data, get_yf_symbols, get_stock_list
+from .stock_data import get_stock_data, get_yf_symbols, get_stock_list
 
 logger = logging.getLogger(__name__)
 
@@ -223,3 +223,4 @@ if __name__ == "__main__":
             print("   Technical indicators are estimated (yfinance blocked)")
         else:
             print("❌ No stocks passed basic criteria")
+
