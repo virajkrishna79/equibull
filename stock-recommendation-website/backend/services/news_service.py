@@ -37,7 +37,8 @@ class NewsService:
             "notebookcheck.net",
             "finance.yahoo.com",
             "comicbook.com",
-            "biztoc.com"
+            "biztoc.com",
+            "cnet.com"
         ]
         
     def _is_allowed_article(self, article: Dict[str, Any]) -> bool:
@@ -359,6 +360,7 @@ class NewsService:
             'ICICIBANK': 'ICICI Bank Limited'
         }
         return company_names.get(symbol.upper(), symbol)
+
 
 
 
