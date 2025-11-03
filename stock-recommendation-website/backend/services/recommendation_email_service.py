@@ -4,19 +4,19 @@ from typing import List, Dict, Any
 from datetime import datetime
 from models import User
 from app import db
-from services.resend_email_service import ResendEmailService  # ← CHANGE THIS
+from services.emailjs_service import EmailJSService  # ← ONLY EMAILJS
 from services.recommendation_service import RecommendationService
 
 logger = logging.getLogger(__name__)
 
 class RecommendationEmailService:
     def __init__(self):
-        self.email_service = ResendEmailService()  # ← CHANGE THIS
+        self.email_service = EmailJSService()  # ← ONLY EMAILJS
         self.recommendation_service = RecommendationService()
     
     def send_top_stocks_to_users(self, top_n: int = 5) -> Dict[str, Any]:
         """
-        Send top N stocks from screener to all active users
+        Send top N stocks from screener to all active users using EmailJS
         Returns: {"success": bool, "sent_count": int, "total_users": int, "error": str}
         """
         try:
@@ -44,7 +44,7 @@ class RecommendationEmailService:
                 logger.warning("No top stocks found after sorting")
                 return {"success": False, "sent_count": 0, "total_users": len(active_users), "error": "No top stocks"}
             
-            # Send emails to all users
+            # Send emails to all users using EmailJS
             success_count = 0
             for user in active_users:
                 if self._send_top_stocks_email(user, top_stocks):
@@ -55,13 +55,14 @@ class RecommendationEmailService:
             # Commit all timestamp updates
             db.session.commit()
             
-            logger.info(f"Successfully sent top {top_n} stocks to {success_count}/{len(active_users)} users")
+            logger.info(f"Successfully sent top {top_n} stocks to {success_count}/{len(active_users)} users using EmailJS")
             
             return {
                 "success": True,
                 "sent_count": success_count,
                 "total_users": len(active_users),
                 "top_stocks_count": len(top_stocks),
+                "email_service_used": "emailjs",
                 "error": None
             }
             
@@ -71,24 +72,34 @@ class RecommendationEmailService:
             return {"success": False, "sent_count": 0, "total_users": 0, "error": str(e)}
     
     def _send_top_stocks_email(self, user: User, top_stocks: List[Dict[str, Any]]) -> bool:
-        """Send top stocks email to a specific user using Resend"""
+        """Send top stocks email to a specific user using EmailJS"""
         try:
             subject = f"🚀 Top {len(top_stocks)} Stock Picks - {datetime.now().strftime('%Y-%m-%d')}"
             html_content = self._create_top_stocks_email_content(user, top_stocks)
             
-            # This now uses Resend API instead of SMTP
-            return self.email_service.send_email(user.email, subject, html_content)
+            # Use EmailJS to send the email
+            template_params = {
+                "user_name": user.name or "Investor",
+                "subject": subject,
+                "html_content": html_content,
+                "top_stocks_count": len(top_stocks),
+                "sent_date": datetime.now().strftime('%B %d, %Y')
+            }
+            
+            return self.email_service.send_email(
+                to_email=user.email,
+                template_params=template_params
+                # template_id and service_id will use defaults from env
+            )
             
         except Exception as e:
-            logger.error(f"Failed to send top stocks email to {user.email}: {e}")
+            logger.error(f"Failed to send top stocks email to {user.email} via EmailJS: {e}")
             return False
     
     # Keep your existing _create_top_stocks_email_content method unchanged
-    # ... (your existing HTML template code)
-    
     def _create_top_stocks_email_content(self, user: User, top_stocks: List[Dict[str, Any]]) -> str:
         """Create HTML email content for top stocks"""
-        
+        # ... (your existing HTML template code remains exactly the same)
         stocks_html = ""
         for i, stock in enumerate(top_stocks, 1):
             symbol = stock.get('symbol', 'N/A')
