@@ -7,62 +7,35 @@ from typing import Dict, Any, Optional, List
 logger = logging.getLogger(__name__)
 
 class EmailJSService:
-    """
-    Service for handling email operations using EmailJS API
-    """
-    
     def __init__(self):
         self.emailjs_public_key = os.getenv('EMAILJS_PUBLIC_KEY')
         self.emailjs_service_id = os.getenv('EMAILJS_SERVICE_ID')
-        self.emailjs_template_id = os.getenv('EMAILJS_TEMPLATE_ID')  # Add template ID
+        self.emailjs_template_id = os.getenv('EMAILJS_TEMPLATE_ID')
         self.base_url = "https://api.emailjs.com/api/v1.0/email/send"
         
-        # Log configuration status
         if self._validate_required_config():
             logger.info("✅ EmailJSService initialized with valid configuration")
         else:
-            logger.warning("⚠️ EmailJSService initialized but missing required configuration")
-            logger.warning("   Set EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID, and EMAILJS_TEMPLATE_ID in Railway environment variables")
+            logger.warning("⚠️ EmailJSService missing required configuration")
         
     def _validate_required_config(self) -> bool:
-        """Validate that required EmailJS configuration is present"""
         required_configs = [
             self.emailjs_public_key,
             self.emailjs_service_id,
-            self.emailjs_template_id  # Template ID is required
+            self.emailjs_template_id
         ]
         return all(required_configs)
     
-    def send_email(
-        self,
-        to_email: str,
-        template_params: Dict[str, Any],
-        template_id: Optional[str] = None
-    ) -> bool:
-        """
-        Send email using EmailJS
-        
-        Args:
-            to_email: Recipient email address
-            template_params: Dynamic parameters for the email template
-            template_id: Template ID (uses default from env if not provided)
-            
-        Returns:
-            bool: True if email was sent successfully, False otherwise
-        """
+    def send_email(self, to_email: str, template_params: Dict[str, Any]) -> bool:
         try:
             if not self._validate_required_config():
-                logger.error("EmailJS configuration is incomplete. Set EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID, and EMAILJS_TEMPLATE_ID in Railway environment variables")
+                logger.error("EmailJS configuration incomplete")
                 return False
             
-            # Use provided template_id or fallback to environment variable
-            final_template_id = template_id or self.emailjs_template_id
-            
-            # Prepare the payload for EmailJS
             payload = {
                 "user_id": self.emailjs_public_key,
                 "service_id": self.emailjs_service_id,
-                "template_id": final_template_id,  # Template ID is REQUIRED
+                "template_id": self.emailjs_template_id,
                 "template_params": {
                     "to_email": to_email,
                     **template_params
@@ -73,8 +46,6 @@ class EmailJSService:
                 "Content-Type": "application/json",
                 "Origin": os.getenv('EMAILJS_ORIGIN', 'https://equibull-production.up.railway.app')
             }
-            
-            logger.info(f"Sending email to {to_email} using template {final_template_id}")
             
             response = requests.post(
                 self.base_url,
@@ -93,45 +64,6 @@ class EmailJSService:
         except Exception as e:
             logger.error(f"Error sending email via EmailJS: {str(e)}")
             return False
-
-    def send_batch_emails(
-        self,
-        email_list: List[Dict[str, Any]],
-        template_id: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """Send batch emails to multiple recipients"""
-        results = {
-            "successful": 0,
-            "failed": 0,
-            "errors": [],
-            "total": len(email_list)
-        }
-        
-        for email_data in email_list:
-            success = self.send_email(
-                to_email=email_data["to_email"],
-                template_params=email_data["template_params"],
-                template_id=template_id
-            )
-            
-            if success:
-                results["successful"] += 1
-            else:
-                results["failed"] += 1
-                results["errors"].append(f"Failed to send to {email_data['to_email']}")
-        
-        return results
-
-    def test_connection(self) -> Dict[str, Any]:
-        """Test EmailJS connection and configuration"""
-        return {
-            "success": self._validate_required_config(),
-            "config_valid": self._validate_required_config(),
-            "public_key_set": bool(self.emailjs_public_key),
-            "service_id_set": bool(self.emailjs_service_id),
-            "template_id_set": bool(self.emailjs_template_id)
-        }
-
 
 # Singleton instance
 emailjs_service = EmailJSService()
