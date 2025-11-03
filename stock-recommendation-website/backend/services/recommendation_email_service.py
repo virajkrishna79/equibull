@@ -72,61 +72,61 @@ class RecommendationEmailService:
             return {"success": False, "sent_count": 0, "total_users": 0, "error": str(e)}
     
     def _send_top_stocks_email(self, user: User, top_stocks: List[Dict[str, Any]]) -> bool:
-    """Send top stocks email to a specific user using EmailJS"""
-    try:
-        # Get user name safely
-        user_name = getattr(user, 'name', None) or user.email.split('@')[0] or "Investor"
-        
-        # Prepare template parameters
-        template_params = {
-            "user_name": user_name,
-            "sent_date": datetime.now().strftime('%B %d, %Y'),
-            "to_email": user.email,
-        }
-        
-        # Add each stock individually (up to 5 stocks)
-        for i, stock in enumerate(top_stocks[:5], 1):
-            symbol = stock.get('symbol', 'N/A')
-            recommendation = stock.get('recommendation', 'HOLD')
-            confidence = stock.get('confidence_score', 0)
-            current_price = stock.get('current_price', 0)
-            reasoning = stock.get('reasoning', 'No reasoning provided')
+        """Send top stocks email to a specific user using EmailJS"""
+        try:
+            # Get user name safely
+            user_name = getattr(user, 'name', None) or user.email.split('@')[0] or "Investor"
             
-            # Convert confidence to percentage
-            confidence_percentage = confidence * 100 if confidence <= 1 else confidence
+            # Prepare template parameters
+            template_params = {
+                "user_name": user_name,
+                "sent_date": datetime.now().strftime('%B %d, %Y'),
+                "to_email": user.email,
+            }
             
-            # Get screener data
-            screener_data = stock.get('screener_data', {})
-            mcap = screener_data.get('MCap(Cr)', 'N/A')
-            down_from_high = screener_data.get('%DownFromHigh', 'N/A')
+            # Add each stock individually (up to 5 stocks)
+            for i, stock in enumerate(top_stocks[:5], 1):
+                symbol = stock.get('symbol', 'N/A')
+                recommendation = stock.get('recommendation', 'HOLD')
+                confidence = stock.get('confidence_score', 0)
+                current_price = stock.get('current_price', 0)
+                reasoning = stock.get('reasoning', 'No reasoning provided')
+                
+                # Convert confidence to percentage
+                confidence_percentage = confidence * 100 if confidence <= 1 else confidence
+                
+                # Get screener data
+                screener_data = stock.get('screener_data', {})
+                mcap = screener_data.get('MCap(Cr)', 'N/A')
+                down_from_high = screener_data.get('%DownFromHigh', 'N/A')
+                
+                # Determine badge color
+                badge_color = {
+                    'BUY': '#28a745',
+                    'SELL': '#dc3545', 
+                    'HOLD': '#ffc107'
+                }.get(recommendation, '#6c757d')
+                
+                # Add individual stock to template params
+                template_params.update({
+                    f"stock{i}_symbol": symbol,
+                    f"stock{i}_recommendation": recommendation,
+                    f"stock{i}_confidence": f"{confidence_percentage:.1f}%",
+                    f"stock{i}_current_price": f"₹{current_price:,.2f}",
+                    f"stock{i}_mcap": f"₹{mcap} Cr",
+                    f"stock{i}_down_from_high": f"{down_from_high}%",
+                    f"stock{i}_reasoning": reasoning,
+                    f"stock{i}_badge_color": badge_color,
+                })
             
-            # Determine badge color
-            badge_color = {
-                'BUY': '#28a745',
-                'SELL': '#dc3545', 
-                'HOLD': '#ffc107'
-            }.get(recommendation, '#6c757d')
+            return self.email_service.send_email(
+                to_email=user.email,
+                template_params=template_params
+            )
             
-            # Add individual stock to template params
-            template_params.update({
-                f"stock{i}_symbol": symbol,
-                f"stock{i}_recommendation": recommendation,
-                f"stock{i}_confidence": f"{confidence_percentage:.1f}%",
-                f"stock{i}_current_price": f"₹{current_price:,.2f}",
-                f"stock{i}_mcap": f"₹{mcap} Cr",
-                f"stock{i}_down_from_high": f"{down_from_high}%",
-                f"stock{i}_reasoning": reasoning,
-                f"stock{i}_badge_color": badge_color,
-            })
-        
-        return self.email_service.send_email(
-            to_email=user.email,
-            template_params=template_params
-        )
-        
-    except Exception as e:
-        logger.error(f"Failed to send top stocks email to {user.email} via EmailJS: {e}")
-        return False
+        except Exception as e:
+            logger.error(f"Failed to send top stocks email to {user.email} via EmailJS: {e}")
+            return False
 
 # Singleton instance for easy import
 recommendation_email_service = RecommendationEmailService()
