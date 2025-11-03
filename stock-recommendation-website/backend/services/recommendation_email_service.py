@@ -4,14 +4,14 @@ from typing import List, Dict, Any
 from datetime import datetime
 from models import User
 from app import db
-from services.emailjs_service import EmailJSService  # ← ONLY EMAILJS
+from services.emailjs_service import EmailJSService
 from services.recommendation_service import RecommendationService
 
 logger = logging.getLogger(__name__)
 
 class RecommendationEmailService:
     def __init__(self):
-        self.email_service = EmailJSService()  # ← ONLY EMAILJS
+        self.email_service = EmailJSService()
         self.recommendation_service = RecommendationService()
     
     def send_top_stocks_to_users(self, top_n: int = 5) -> Dict[str, Any]:
@@ -78,35 +78,45 @@ class RecommendationEmailService:
             html_content = self._create_top_stocks_email_content(user, top_stocks)
             
             # Use EmailJS to send the email
+            # Get user name safely - use email username as fallback
+            user_name = getattr(user, 'name', None) or user.email.split('@')[0] or "Investor"
+            
             template_params = {
-                "user_name": user.name or "Investor",
+                "user_name": user_name,
                 "subject": subject,
                 "html_content": html_content,
                 "top_stocks_count": len(top_stocks),
-                "sent_date": datetime.now().strftime('%B %d, %Y')
+                "sent_date": datetime.now().strftime('%B %d, %Y'),
+                "to_email": user.email
             }
             
             return self.email_service.send_email(
                 to_email=user.email,
                 template_params=template_params
-                # template_id and service_id will use defaults from env
             )
             
         except Exception as e:
             logger.error(f"Failed to send top stocks email to {user.email} via EmailJS: {e}")
             return False
     
-    # Keep your existing _create_top_stocks_email_content method unchanged
     def _create_top_stocks_email_content(self, user: User, top_stocks: List[Dict[str, Any]]) -> str:
         """Create HTML email content for top stocks"""
-        # ... (your existing HTML template code remains exactly the same)
+        # Get user name safely
+        user_name = getattr(user, 'name', None) or user.email.split('@')[0] or "Investor"
+        
         stocks_html = ""
         for i, stock in enumerate(top_stocks, 1):
             symbol = stock.get('symbol', 'N/A')
             recommendation = stock.get('recommendation', 'HOLD')
-            confidence = stock.get('confidence_score', 0) * 100
+            confidence = stock.get('confidence_score', 0)
             current_price = stock.get('current_price', 0)
             reasoning = stock.get('reasoning', 'No reasoning provided')
+            
+            # Convert confidence to percentage if it's a decimal
+            if confidence <= 1:  # If it's a decimal like 0.85
+                confidence_percentage = confidence * 100
+            else:  # If it's already a percentage like 85
+                confidence_percentage = confidence
             
             # Get screener data if available
             screener_data = stock.get('screener_data', {})
@@ -136,7 +146,7 @@ class RecommendationEmailService:
                     </div>
                     <div>
                         <strong>Confidence:</strong><br>
-                        <span style="font-size: 16px; color: #27ae60;">{confidence:.1f}%</span>
+                        <span style="font-size: 16px; color: #27ae60;">{confidence_percentage:.1f}%</span>
                     </div>
                 </div>
                 
@@ -189,7 +199,7 @@ class RecommendationEmailService:
                 
                 <div class="content">
                     <div class="stats">
-                        <h3 style="margin: 0 0 10px 0; color: #2c3e50;">Your Personalized Recommendations</h3>
+                        <h3 style="margin: 0 0 10px 0; color: #2c3e50;">Hello {user_name}!</h3>
                         <p style="margin: 0; color: #666;">
                             Based on technical analysis, market cap screening, and momentum indicators
                         </p>
