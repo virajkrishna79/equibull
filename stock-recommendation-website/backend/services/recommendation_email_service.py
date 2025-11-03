@@ -10,17 +10,23 @@ from services.recommendation_service import RecommendationService
 logger = logging.getLogger(__name__)
 
 class RecommendationEmailService:
+    """
+    Service for sending stock recommendation emails using EmailJS
+    """
+    
     def __init__(self):
         self.email_service = EmailJSService()
         self.recommendation_service = RecommendationService()
     
     def send_top_stocks_to_users(self, top_n: int = 5) -> Dict[str, Any]:
         """
-        Send top N stocks from screener to all active users using EmailJS
-        Returns: {"success": bool, "sent_count": int, "total_users": int, "error": str}
+        Send top N stocks from screener to all active users
+        
+        Returns:
+            Dict with results: {"success": bool, "sent_count": int, "total_users": int, "error": str}
         """
         try:
-            # Get active users
+            # Get active users from database
             active_users = User.query.filter_by(is_active=True).all()
             if not active_users:
                 logger.info("No active users found for email notifications")
@@ -44,7 +50,7 @@ class RecommendationEmailService:
                 logger.warning("No top stocks found after sorting")
                 return {"success": False, "sent_count": 0, "total_users": len(active_users), "error": "No top stocks"}
             
-            # Send emails to all users using EmailJS
+            # Send emails to all users
             success_count = 0
             for user in active_users:
                 if self._send_top_stocks_email(user, top_stocks):
@@ -112,13 +118,17 @@ class RecommendationEmailService:
                     'badge_color': badge_color
                 })
             
+            # Prepare template parameters for EmailJS
             template_params = {
                 "user_name": user_name,
+                "subject": f"🚀 Top {len(top_stocks)} Stock Picks - {datetime.now().strftime('%Y-%m-%d')}",
                 "sent_date": datetime.now().strftime('%B %d, %Y'),
                 "to_email": user.email,
+                "reply_to": "noreply@equibull.com",
                 "stocks": stocks_data
             }
             
+            # Send email using EmailJS
             return self.email_service.send_email(
                 to_email=user.email,
                 template_params=template_params
@@ -128,22 +138,6 @@ class RecommendationEmailService:
             logger.error(f"Failed to send top stocks email to {user.email} via EmailJS: {e}")
             return False
 
+
 # Singleton instance for easy import
 recommendation_email_service = RecommendationEmailService()
-                headers=headers,
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                logger.info(f"✅ Email sent successfully to {to_email}")
-                return True
-            else:
-                logger.error(f"❌ EmailJS API error: {response.status_code} - {response.text}")
-                return False
-                
-        except Exception as e:
-            logger.error(f"Error sending email via EmailJS: {str(e)}")
-            return False
-
-# Singleton instance
-emailjs_service = EmailJSService()
