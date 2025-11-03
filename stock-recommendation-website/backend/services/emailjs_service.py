@@ -14,6 +14,7 @@ class EmailJSService:
     def __init__(self):
         self.emailjs_public_key = os.getenv('EMAILJS_PUBLIC_KEY')
         self.emailjs_service_id = os.getenv('EMAILJS_SERVICE_ID')
+        self.emailjs_template_id = os.getenv('EMAILJS_TEMPLATE_ID')  # Add template ID
         self.base_url = "https://api.emailjs.com/api/v1.0/email/send"
         
         # Log configuration status
@@ -21,11 +22,16 @@ class EmailJSService:
             logger.info("✅ EmailJSService initialized with valid configuration")
         else:
             logger.warning("⚠️ EmailJSService initialized but missing required configuration")
-            logger.warning("   Set EMAILJS_PUBLIC_KEY and EMAILJS_SERVICE_ID in Railway environment variables")
+            logger.warning("   Set EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID, and EMAILJS_TEMPLATE_ID in Railway environment variables")
         
     def _validate_required_config(self) -> bool:
         """Validate that required EmailJS configuration is present"""
-        return bool(self.emailjs_public_key and self.emailjs_service_id)
+        required_configs = [
+            self.emailjs_public_key,
+            self.emailjs_service_id,
+            self.emailjs_template_id  # Template ID is required
+        ]
+        return all(required_configs)
     
     def send_email(
         self,
@@ -39,36 +45,36 @@ class EmailJSService:
         Args:
             to_email: Recipient email address
             template_params: Dynamic parameters for the email template
-            template_id: Template ID (optional)
+            template_id: Template ID (uses default from env if not provided)
             
         Returns:
             bool: True if email was sent successfully, False otherwise
         """
         try:
             if not self._validate_required_config():
-                logger.error("EmailJS configuration is incomplete. Set EMAILJS_PUBLIC_KEY and EMAILJS_SERVICE_ID in Railway environment variables")
+                logger.error("EmailJS configuration is incomplete. Set EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID, and EMAILJS_TEMPLATE_ID in Railway environment variables")
                 return False
+            
+            # Use provided template_id or fallback to environment variable
+            final_template_id = template_id or self.emailjs_template_id
             
             # Prepare the payload for EmailJS
             payload = {
                 "user_id": self.emailjs_public_key,
                 "service_id": self.emailjs_service_id,
+                "template_id": final_template_id,  # Template ID is REQUIRED
                 "template_params": {
                     "to_email": to_email,
                     **template_params
                 }
             }
             
-            # Add template_id only if provided
-            if template_id:
-                payload["template_id"] = template_id
-            
             headers = {
                 "Content-Type": "application/json",
                 "Origin": os.getenv('EMAILJS_ORIGIN', 'https://equibull-production.up.railway.app')
             }
             
-            logger.info(f"Sending email to {to_email}")
+            logger.info(f"Sending email to {to_email} using template {final_template_id}")
             
             response = requests.post(
                 self.base_url,
@@ -122,7 +128,8 @@ class EmailJSService:
             "success": self._validate_required_config(),
             "config_valid": self._validate_required_config(),
             "public_key_set": bool(self.emailjs_public_key),
-            "service_id_set": bool(self.emailjs_service_id)
+            "service_id_set": bool(self.emailjs_service_id),
+            "template_id_set": bool(self.emailjs_template_id)
         }
 
 
