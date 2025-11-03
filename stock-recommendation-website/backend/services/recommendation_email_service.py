@@ -8,6 +8,16 @@ from services.emailjs_service import EmailJSService
 from services.recommendation_service import RecommendationService
 
 logger = logging.getLogger(__name__)
+# services/recommendation_email_service.py
+import logging
+from typing import List, Dict, Any
+from datetime import datetime
+from models import User
+from app import db
+from services.emailjs_service import EmailJSService
+from services.recommendation_service import RecommendationService
+
+logger = logging.getLogger(__name__)
 
 class RecommendationEmailService:
     """
@@ -132,6 +142,7 @@ class RecommendationEmailService:
             return self.email_service.send_email(
                 to_email=user.email,
                 template_params=template_params
+                # template_id will be used from environment variable
             )
             
         except Exception as e:
