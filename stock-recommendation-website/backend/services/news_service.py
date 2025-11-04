@@ -43,7 +43,9 @@ class NewsService:
             "adexchanger.com",
             "wwd.com",
             "americanthinker.com",
-            "mcnews.com.au"
+            "mcnews.com.au",
+            "cnblogs.com",
+            "sammobile.com"
         ]
         
         # Block specific paths within allowed domains
@@ -387,6 +389,7 @@ class NewsService:
             'ICICIBANK': 'ICICI Bank Limited'
         }
         return company_names.get(symbol.upper(), symbol)
+
 
 
 
