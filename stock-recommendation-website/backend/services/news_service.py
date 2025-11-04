@@ -41,7 +41,7 @@ class NewsService:
             "cnet.com",
             "cbc.ca",
             "adexchanger.com",
-            "wwd.com,
+            "wwd.com",
             "americanthinker.com",
             "mcnews.com.au"
         ]
@@ -388,6 +388,7 @@ class NewsService:
             'ICICIBANK': 'ICICI Bank Limited'
         }
         return company_names.get(symbol.upper(), symbol)
+
 
 
 
