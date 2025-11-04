@@ -39,7 +39,11 @@ class NewsService:
             "comicbook.com",
             "biztoc.com",
             "cnet.com",
-            "cbc.ca" # Block entire domain or use path check below
+            "cbc.ca",
+            "adexchanger.com",
+            "wwd.com,
+            "americanthinker.com",
+            "mcnews.com.au"
         ]
         
         # Block specific paths within allowed domains
@@ -383,6 +387,7 @@ class NewsService:
             'ICICIBANK': 'ICICI Bank Limited'
         }
         return company_names.get(symbol.upper(), symbol)
+
 
 
 
