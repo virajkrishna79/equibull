@@ -39,19 +39,40 @@ class NewsService:
             "comicbook.com",
             "biztoc.com",
             "cnet.com",
-            "cbc.ca",
-            "economictimes.indiatimes.com/magazines"
+            "cbc.ca" # Block entire domain or use path check below
+        ]
+        
+        # Block specific paths within allowed domains
+        self.blocked_paths = [
+            "/magazines/",  # Blocks economictimes.indiatimes.com/magazines/*
+            "/entertainment/",
+            "/lifestyle/",
+            "/sports/",
+            "/panache/"  # This will block your specific Britney Spears article
         ]
         
     def _is_allowed_article(self, article: Dict[str, Any]) -> bool:
-        """Return False if the article domain is blocked"""
+        """Return False if the article domain or path is blocked"""
         url = article.get("url", "")
-        domain = urlparse(url).netloc.lower()
+        
+        # Parse URL
+        parsed_url = urlparse(url)
+        domain = parsed_url.netloc.lower()
+        path = parsed_url.path.lower()
 
-        for blocked in self.blocked_domains:
-            if blocked in domain:
+        # Check blocked domains
+        for blocked_domain in self.blocked_domains:
+            if blocked_domain in domain:
                 return False
+
+        # Check blocked paths (even for allowed domains)
+        for blocked_path in self.blocked_paths:
+            if blocked_path in path:
+                return False
+                
         return True
+        
+    
         
     def get_latest_news(self, limit: int = 10) -> List[Dict[str, Any]]:
         try:
