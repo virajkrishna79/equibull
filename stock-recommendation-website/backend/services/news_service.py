@@ -15,48 +15,30 @@ class NewsService:
         self.news_base_url = 'https://newsapi.org/v2'
         self.fallback_news = self._get_fallback_news()
 
+        # Indian financial news sources (whitelist approach)
+        self.preferred_sources = [
+            "thehindu.com", "economictimes.indiatimes.com", "business-standard.com",
+            "moneycontrol.com", "livemint.com", "financialexpress.com",
+            "bloombergquint.com", "reuters.com", "bloomberg.com",
+            "ndtv.com", "zeebiz.com", "cnbctv18.com"
+        ]
+
         # Block these website domains
         self.blocked_domains = [
-            "twistedsifter.com",
-            "autoexpress.co.uk",
-            "oklahoman.com",
-            "tvline.com",
-            "variety.com",
-            "allears.net",
-            "pcgamer.com",
-            "nintendolife.com",
-            "indiewire.com",
-            "commonsensewithmoney.com",
-            "forbes.com",
-            "redflagdeals.com",
-            "bringatrailer.com",
-            "irishtimes.com",
-            "ozbargain.com.au",
-            "wccftech.com",
-            "globenewswire.com",
-            "notebookcheck.net",
-            "finance.yahoo.com",
-            "comicbook.com",
-            "biztoc.com",
-            "cnet.com",
-            "cbc.ca",
-            "adexchanger.com",
-            "wwd.com",
-            "americanthinker.com",
-            "mcnews.com.au",
-            "cnblogs.com",
-            "sammobile.com",
-            "protothema.gr",
-            "abc.net.au"
+            "twistedsifter.com", "autoexpress.co.uk", "oklahoman.com", "tvline.com",
+            "variety.com", "allears.net", "pcgamer.com", "nintendolife.com",
+            "indiewire.com", "commonsensewithmoney.com", "forbes.com",
+            "redflagdeals.com", "bringatrailer.com", "irishtimes.com",
+            "ozbargain.com.au", "wccftech.com", "globenewswire.com",
+            "notebookcheck.net", "finance.yahoo.com", "comicbook.com",
+            "biztoc.com", "cnet.com", "cbc.ca", "adexchanger.com",
+            "wwd.com", "americanthinker.com", "mcnews.com.au",
+            "cnblogs.com", "sammobile.com", "protothema.gr", "abc.net.au"
         ]
         
         # Block specific paths within allowed domains
         self.blocked_paths = [
-            "/magazines/",  # Blocks economictimes.indiatimes.com/magazines/*
-            "/entertainment/",
-            "/lifestyle/",
-            "/sports/",
-            "/panache/"# This will block your specific Britney Spears article
+            "/magazines/", "/entertainment/", "/lifestyle/", "/sports/", "/panache/"
         ]
         
     def _is_allowed_article(self, article: Dict[str, Any]) -> bool:
@@ -79,17 +61,46 @@ class NewsService:
                 return False
                 
         return True
+
+    def _is_indian_financial_news(self, article: Dict[str, Any]) -> bool:
+        """Check if article is Indian financial news"""
+        title = article.get('title', '').lower()
+        description = article.get('description', '').lower()
+        content = article.get('content', '').lower()
         
-    
+        # Indian financial keywords
+        indian_keywords = [
+            'india', 'indian', 'bse', 'nse', 'sensex', 'nifty', 'rupee', 'rs.',
+            'mumbai', 'delhi', 'bangalore', 'chennai', 'kolkata', 'hyderabad',
+            'sebi', 'rbi', 'fmcg', 'psu', 'psb', 'indian economy', 'gst',
+            'union budget', 'finance minister', 'mcap', 'market cap'
+        ]
         
+        # Financial keywords
+        financial_keywords = [
+            'stock', 'share', 'market', 'trading', 'investment', 'investing',
+            'ipo', 'dividend', 'earnings', 'profit', 'revenue', 'quarterly',
+            'financial', 'banking', 'insurance', 'mutual fund', 'portfolio'
+        ]
+        
+        # Check if article contains Indian financial content
+        text = f"{title} {description} {content}"
+        
+        indian_matches = sum(1 for keyword in indian_keywords if keyword in text)
+        financial_matches = sum(1 for keyword in financial_keywords if keyword in text)
+        
+        return indian_matches >= 1 and financial_matches >= 2
+
     def get_latest_news(self, limit: int = 10) -> List[Dict[str, Any]]:
         try:
             if self.news_api_key:
+                # Try Indian business headlines first
                 news = self._fetch_top_headlines_india(limit)
                 if news and len(news) > 0:
                     return news
 
-                news = self._fetch_news_from_api(limit)
+                # Try Indian financial news search
+                news = self._fetch_indian_financial_news(limit)
                 if news and len(news) > 0:
                     return news
 
@@ -97,17 +108,19 @@ class NewsService:
         except Exception as e:
             logger.error(f"Error fetching news: {e}")
             return []
-    
-    def _fetch_news_from_api(self, limit: int) -> Optional[List[Dict[str, Any]]]:
+
+    def _fetch_indian_financial_news(self, limit: int) -> Optional[List[Dict[str, Any]]]:
+        """Fetch specifically Indian financial news"""
         try:
-            query = "stock market OR finance OR economy OR investing"
+            # Indian financial news query
+            query = "(India OR Indian OR BSE OR NSE OR Sensex OR Nifty) AND (stock market OR finance OR economy OR investing OR banking)"
             url = f"{self.news_base_url}/everything"
             
             params = {
                 'q': query,
                 'language': 'en',
                 'sortBy': 'publishedAt',
-                'pageSize': limit,
+                'pageSize': limit * 2,  # Fetch more to filter
                 'apiKey': self.news_api_key
             }
             
@@ -117,12 +130,15 @@ class NewsService:
             
             if 'articles' in data:
                 articles = []
-                for article in data['articles'][:limit]:
-
-                    # Skip blocked domains
+                for article in data['articles']:
+                    # Skip blocked domains/paths
                     if not self._is_allowed_article(article):
                         continue
-
+                    
+                    # Filter for Indian financial news
+                    if not self._is_indian_financial_news(article):
+                        continue
+                    
                     sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
                     
                     news_article = NewsArticle(
@@ -152,13 +168,18 @@ class NewsService:
                         'sentiment_score': sentiment_score,
                         'sentiment_label': sentiment_label
                     })
+                    
+                    if len(articles) >= limit:
+                        break
                 
                 return articles
                 
         except Exception as e:
-            logger.warning(f"News API failed: {e}")
+            logger.warning(f"Indian financial news API failed: {e}")
             
         return None
+
+    # ... keep your existing _fetch_top_headlines_india method as it is ...
 
     def _fetch_top_headlines_india(self, limit: int) -> Optional[List[Dict[str, Any]]]:
         try:
@@ -391,6 +412,7 @@ class NewsService:
             'ICICIBANK': 'ICICI Bank Limited'
         }
         return company_names.get(symbol.upper(), symbol)
+
 
 
 
