@@ -91,25 +91,6 @@ class NewsService:
         
         return indian_matches >= 1 and financial_matches >= 2
 
-    def _is_recent_article(self, article: Dict[str, Any]) -> bool:
-        """Check if article is from today (not day-old)"""
-        try:
-            published_at = article.get('publishedAt')
-            if not published_at:
-                return True  # If no date, include it
-                
-            # Parse the published date
-            published_dt = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
-            current_dt = datetime.utcnow()
-            
-            # Check if article is from today (within last 24 hours)
-            time_diff = current_dt - published_dt
-            return time_diff.total_seconds() <= 24 * 60 * 60  # 24 hours
-            
-        except Exception as e:
-            logger.warning(f"Error checking article date: {e}")
-            return True  # If error, include the article
-
     def get_latest_news(self, limit: int = 10) -> List[Dict[str, Any]]:
         try:
             if self.news_api_key:
@@ -131,19 +112,15 @@ class NewsService:
     def _fetch_indian_financial_news(self, limit: int) -> Optional[List[Dict[str, Any]]]:
         """Fetch specifically Indian financial news"""
         try:
-            # Indian financial news query - get only recent news
+            # Indian financial news query
             query = "(India OR Indian OR BSE OR NSE OR Sensex OR Nifty) AND (stock market OR finance OR economy OR investing OR banking)"
             url = f"{self.news_base_url}/everything"
-            
-            # Get current date for freshness
-            from_date = (datetime.now() - timedelta(hours=24)).strftime('%Y-%m-%d')
             
             params = {
                 'q': query,
                 'language': 'en',
                 'sortBy': 'publishedAt',
-                'pageSize': limit * 3,  # Fetch more to filter for freshness
-                'from': from_date,  # Only get articles from last 24 hours
+                'pageSize': limit * 2,  # Fetch more to filter
                 'apiKey': self.news_api_key
             }
             
@@ -158,15 +135,12 @@ class NewsService:
                     if not self._is_allowed_article(article):
                         continue
                     
-                    # Filter for recent articles only
-                    if not self._is_recent_article(article):
-                        continue
-                    
                     # Filter for Indian financial news
                     if not self._is_indian_financial_news(article):
                         continue
                     
-                    # Remove sentiment analysis - just store basic article info
+                    sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
+                    
                     news_article = NewsArticle(
                         title=article['title'],
                         description=article.get('description', ''),
@@ -174,8 +148,8 @@ class NewsService:
                         url=article.get('url', ''),
                         source=article.get('source', {}).get('name', ''),
                         published_at=datetime.fromisoformat(article['publishedAt'].replace('Z', '+00:00')),
-                        sentiment_score=0.0,  # Default value
-                        sentiment_label='neutral'  # Default value
+                        sentiment_score=sentiment_score,
+                        sentiment_label=sentiment_label
                     )
                     
                     try:
@@ -185,14 +159,14 @@ class NewsService:
                         logger.warning(f"Failed to store news article: {e}")
                         db.session.rollback()
                     
-                    # Return article without sentiment scores
                     articles.append({
                         'title': article['title'],
                         'description': article.get('description', ''),
                         'url': article.get('url', ''),
                         'source': article.get('source', {}).get('name', ''),
-                        'published_at': article['publishedAt']
-                        # Removed sentiment_score and sentiment_label
+                        'published_at': article['publishedAt'],
+                        'sentiment_score': sentiment_score,
+                        'sentiment_label': sentiment_label
                     })
                     
                     if len(articles) >= limit:
@@ -205,13 +179,15 @@ class NewsService:
             
         return None
 
+    # ... keep your existing _fetch_top_headlines_india method as it is ...
+
     def _fetch_top_headlines_india(self, limit: int) -> Optional[List[Dict[str, Any]]]:
         try:
             url = f"{self.news_base_url}/top-headlines"
             params = {
                 'country': 'in',
                 'category': 'business',
-                'pageSize': limit * 2,  # Fetch more to filter for freshness
+                'pageSize': limit,
                 'apiKey': self.news_api_key
             }
             response = requests.get(url, params=params, timeout=10)
@@ -219,16 +195,14 @@ class NewsService:
             data = response.json()
             if 'articles' in data:
                 articles = []
-                for article in data['articles']:
+                for article in data['articles'][:limit]:
+
                     # Skip blocked domains
                     if not self._is_allowed_article(article):
                         continue
 
-                    # Filter for recent articles only
-                    if not self._is_recent_article(article):
-                        continue
+                    sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
 
-                    # Remove sentiment analysis - just store basic article info
                     try:
                         published = article.get('publishedAt')
                         published_dt = None
@@ -244,8 +218,8 @@ class NewsService:
                             url=article.get('url', ''),
                             source=article.get('source', {}).get('name', ''),
                             published_at=published_dt,
-                            sentiment_score=0.0,  # Default value
-                            sentiment_label='neutral'  # Default value
+                            sentiment_score=sentiment_score,
+                            sentiment_label=sentiment_label
                         )
                         db.session.add(news_article)
                         db.session.commit()
@@ -253,34 +227,49 @@ class NewsService:
                         logger.warning(f"Failed to store top headline: {e}")
                         db.session.rollback()
 
-                    # Return article without sentiment scores
                     articles.append({
                         'title': article['title'],
                         'description': article.get('description', ''),
                         'url': article.get('url', ''),
                         'source': article.get('source', {}).get('name', ''),
-                        'published_at': article.get('publishedAt', datetime.now().isoformat())
-                        # Removed sentiment_score and sentiment_label
+                        'published_at': article.get('publishedAt', datetime.now().isoformat()),
+                        'sentiment_score': sentiment_score,
+                        'sentiment_label': sentiment_label
                     })
-
-                    if len(articles) >= limit:
-                        break
                 return articles
         except Exception as e:
             logger.warning(f"Top headlines (IN) failed: {e}")
         return None
     
-    # Remove sentiment analysis method since we're not using it anymore
-    # def _analyze_sentiment(self, text: str) -> tuple:
-    #     ... (removed)
+    def _analyze_sentiment(self, text: str) -> tuple:
+        try:
+            positive_keywords = [
+                'surge', 'jump', 'rise', 'gain', 'profit', 'earnings', 'growth',
+                'positive', 'bullish', 'rally', 'breakout', 'strong', 'up'
+            ]
+            negative_keywords = [
+                'fall', 'drop', 'decline', 'loss', 'crash', 'bearish', 'weak',
+                'negative', 'down', 'plunge', 'slump', 'concern', 'risk'
+            ]
+            
+            text_lower = text.lower()
+            positive_count = sum(1 for word in positive_keywords if word in text_lower)
+            negative_count = sum(1 for word in negative_keywords if word in text_lower)
+            
+            if positive_count > negative_count:
+                return 0.5, 'positive'
+            elif negative_count > positive_count:
+                return -0.5, 'negative'
+            else:
+                return 0.0, 'neutral'
+                
+        except Exception as e:
+            logger.error(f"Error in sentiment analysis: {e}")
+            return 0.0, 'neutral'
     
     def _get_stored_news(self, limit: int) -> List[Dict[str, Any]]:
         try:
-            # Only get recent stored news (last 24 hours)
-            time_threshold = datetime.utcnow() - timedelta(hours=24)
-            articles = NewsArticle.query.filter(
-                NewsArticle.published_at >= time_threshold
-            ).order_by(NewsArticle.published_at.desc()).limit(limit).all()
+            articles = NewsArticle.query.order_by(NewsArticle.published_at.desc()).limit(limit).all()
             return [article.to_dict() for article in articles]
         except Exception as e:
             logger.error(f"Error getting stored news: {e}")
@@ -293,24 +282,45 @@ class NewsService:
                 'description': 'Major indices demonstrate strength despite ongoing economic uncertainties.',
                 'url': '',
                 'source': 'Market News',
-                'published_at': datetime.now().isoformat()
-                # Removed sentiment_score and sentiment_label
+                'published_at': datetime.now().isoformat(),
+                'sentiment_score': 0.3,
+                'sentiment_label': 'positive'
             },
             {
                 'title': 'Tech Sector Leads Market Recovery',
                 'description': 'Technology stocks continue to outperform as investors seek growth opportunities.',
                 'url': '',
                 'source': 'Financial Times',
-                'published_at': datetime.now().isoformat()
-                # Removed sentiment_score and sentiment_label
+                'published_at': datetime.now().isoformat(),
+                'sentiment_score': 0.5,
+                'sentiment_label': 'positive'
             },
             {
                 'title': 'Federal Reserve Policy Impact on Markets',
                 'description': 'Investors closely watch Fed decisions for market direction clues.',
                 'url': '',
                 'source': 'Reuters',
-                'published_at': datetime.now().isoformat()
-                # Removed sentiment_score and sentiment_label
+                'published_at': datetime.now().isoformat(),
+                'sentiment_score': 0.0,
+                'sentiment_label': 'neutral'
+            },
+            {
+                'title': 'Oil Prices Fluctuate on Supply Concerns',
+                'description': 'Energy sector faces volatility amid changing supply dynamics.',
+                'url': '',
+                'source': 'Bloomberg',
+                'published_at': datetime.now().isoformat(),
+                'sentiment_score': -0.2,
+                'sentiment_label': 'negative'
+            },
+            {
+                'title': 'Earnings Season Brings Mixed Results',
+                'description': 'Corporate earnings reports show varied performance across sectors.',
+                'url': '',
+                'source': 'CNBC',
+                'published_at': datetime.now().isoformat(),
+                'sentiment_score': 0.1,
+                'sentiment_label': 'neutral'
             }
         ]
     
@@ -336,14 +346,15 @@ class NewsService:
                             if not self._is_allowed_article(article):
                                 continue
 
-                            # Return article without sentiment scores
+                            sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
                             articles.append({
                                 'title': article['title'],
                                 'description': article.get('description', ''),
                                 'url': article.get('url', ''),
                                 'source': article.get('source', {}).get('name', ''),
-                                'published_at': article.get('publishedAt', datetime.now().isoformat())
-                                # Removed sentiment_score and sentiment_label
+                                'published_at': article.get('publishedAt', datetime.now().isoformat()),
+                                'sentiment_score': sentiment_score,
+                                'sentiment_label': sentiment_label
                             })
                         return articles
                 except Exception:
@@ -369,14 +380,15 @@ class NewsService:
                         if not self._is_allowed_article(article):
                             continue
 
-                        # Return article without sentiment scores
+                        sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
                         articles.append({
                             'title': article['title'],
                             'description': article.get('description', ''),
                             'url': article.get('url', ''),
                             'source': article.get('source', {}).get('name', ''),
-                            'published_at': article.get('publishedAt', datetime.now().isoformat())
-                            # Removed sentiment_score and sentiment_label
+                            'published_at': article.get('publishedAt', datetime.now().isoformat()),
+                            'sentiment_score': sentiment_score,
+                            'sentiment_label': sentiment_label
                         })
                     return articles
             
