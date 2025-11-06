@@ -2,49 +2,41 @@ import React from 'react';
 import { ExternalLink, Calendar, Clock } from 'lucide-react';
 
 const NewsCard = ({ article }) => {
-  const { 
-    title, 
-    description, 
-    url, 
-    source, 
-    published_at, 
-    sentiment_score, 
-    sentiment_label 
-  } = article;
+  const { title, description, url, source, published_at, sentiment_score, sentiment_label } = article;
 
   const isValidExternalUrl = (u) => {
     try {
       if (!u) return false;
       const parsed = new URL(u);
-      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:' ;
     } catch (e) {
       return false;
     }
   };
 
-  const safeDate = (dateString) => {
-    if (!dateString) return null;
-    const d = new Date(dateString);
-    return isNaN(d.getTime()) ? null : d;
-  };
-
   const formatDate = (dateString) => {
-    const date = safeDate(dateString);
-    if (!date) return 'Unknown';
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return 'Unknown';
+    }
   };
 
   const formatTime = (dateString) => {
-    const date = safeDate(dateString);
-    if (!date) return 'Unknown';
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      return 'Unknown';
+    }
   };
 
   const getSentimentColor = (label) => {
