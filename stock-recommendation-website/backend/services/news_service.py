@@ -126,13 +126,21 @@ class NewsService:
 
                     sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
 
+                    published = article.get('publishedAt')
+                    published_dt = None
+                    if published:
+                        try:
+                            published_dt = datetime.fromisoformat(published.replace('Z', '+00:00'))
+                        except:
+                            published_dt = datetime.utcnow()
+
                     news_article = NewsArticle(
                         title=article['title'],
                         description=article.get('description', ''),
                         content=article.get('content', ''),
                         url=article.get('url', ''),
                         source=article.get('source', {}).get('name', ''),
-                        published_at=datetime.fromisoformat(article['publishedAt'].replace('Z', '+00:00')),
+                        published_at=published_dt,
                         sentiment_score=sentiment_score,
                         sentiment_label=sentiment_label
                     )
@@ -150,7 +158,8 @@ class NewsService:
                         'url': article.get('url', ''),
                         'source': article.get('source', {}).get('name', ''),
                         'sentiment_score': sentiment_score,
-                        'sentiment_label': sentiment_label
+                        'sentiment_label': sentiment_label,
+                        'published_at': published_dt.isoformat() if published_dt else None
                     })
 
                     if len(articles) >= limit:
@@ -185,15 +194,15 @@ class NewsService:
 
                     sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
 
-                    try:
-                        published = article.get('publishedAt')
-                        published_dt = None
-                        if published:
-                            try:
-                                published_dt = datetime.fromisoformat(published.replace('Z', '+00:00'))
-                            except Exception:
-                                published_dt = datetime.utcnow()
+                    published = article.get('publishedAt')
+                    published_dt = None
+                    if published:
+                        try:
+                            published_dt = datetime.fromisoformat(published.replace('Z', '+00:00'))
+                        except:
+                            published_dt = datetime.utcnow()
 
+                    try:
                         news_article = NewsArticle(
                             title=article['title'],
                             description=article.get('description', ''),
@@ -217,7 +226,8 @@ class NewsService:
                         'url': article.get('url', ''),
                         'source': article.get('source', {}).get('name', ''),
                         'sentiment_score': sentiment_score,
-                        'sentiment_label': sentiment_label
+                        'sentiment_label': sentiment_label,
+                        'published_at': published_dt.isoformat() if published_dt else None
                     })
 
                 return articles
@@ -259,11 +269,7 @@ class NewsService:
             articles = NewsArticle.query.order_by(NewsArticle.published_at.desc()).limit(limit).all()
             stored = [article.to_dict() for article in articles]
 
-            # strip published_at before returning
-            for item in stored:
-                item.pop("published_at", None)
-
-            return stored
+            return stored[:limit]
 
         except Exception as e:
             logger.error(f"Error getting stored news: {e}")
@@ -277,7 +283,8 @@ class NewsService:
                 'url': '',
                 'source': 'Market News',
                 'sentiment_score': 0.3,
-                'sentiment_label': 'positive'
+                'sentiment_label': 'positive',
+                'published_at': None
             },
             {
                 'title': 'Tech Sector Leads Market Recovery',
@@ -285,31 +292,8 @@ class NewsService:
                 'url': '',
                 'source': 'Financial Times',
                 'sentiment_score': 0.5,
-                'sentiment_label': 'positive'
-            },
-            {
-                'title': 'Federal Reserve Policy Impact on Markets',
-                'description': 'Investors closely watch Fed decisions for market direction clues.',
-                'url': '',
-                'source': 'Reuters',
-                'sentiment_score': 0.0,
-                'sentiment_label': 'neutral'
-            },
-            {
-                'title': 'Oil Prices Fluctuate on Supply Concerns',
-                'description': 'Energy sector faces volatility amid changing supply dynamics.',
-                'url': '',
-                'source': 'Bloomberg',
-                'sentiment_score': -0.2,
-                'sentiment_label': 'negative'
-            },
-            {
-                'title': 'Earnings Season Brings Mixed Results',
-                'description': 'Corporate earnings reports show varied performance across sectors.',
-                'url': '',
-                'source': 'CNBC',
-                'sentiment_score': 0.1,
-                'sentiment_label': 'neutral'
+                'sentiment_label': 'positive',
+                'published_at': None
             }
         ]
 
@@ -337,13 +321,22 @@ class NewsService:
 
                             sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
 
+                            published = article.get('publishedAt')
+                            published_dt = None
+                            if published:
+                                try:
+                                    published_dt = datetime.fromisoformat(published.replace('Z', '+00:00'))
+                                except:
+                                    published_dt = datetime.utcnow()
+
                             articles.append({
                                 'title': article['title'],
                                 'description': article.get('description', ''),
                                 'url': article.get('url', ''),
                                 'source': article.get('source', {}).get('name', ''),
                                 'sentiment_score': sentiment_score,
-                                'sentiment_label': sentiment_label
+                                'sentiment_label': sentiment_label,
+                                'published_at': published_dt.isoformat() if published_dt else None
                             })
 
                         return articles
@@ -373,13 +366,22 @@ class NewsService:
 
                     sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
 
+                    published = article.get('publishedAt')
+                    published_dt = None
+                    if published:
+                        try:
+                            published_dt = datetime.fromisoformat(published.replace('Z', '+00:00'))
+                        except:
+                            published_dt = datetime.utcnow()
+
                     articles.append({
                         'title': article['title'],
                         'description': article.get('description', ''),
                         'url': article.get('url', ''),
                         'source': article.get('source', {}).get('name', ''),
                         'sentiment_score': sentiment_score,
-                        'sentiment_label': sentiment_label
+                        'sentiment_label': sentiment_label,
+                        'published_at': published_dt.isoformat() if published_dt else None
                     })
 
                 return articles
