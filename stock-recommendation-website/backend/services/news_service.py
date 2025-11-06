@@ -94,131 +94,20 @@ class NewsService:
     def get_latest_news(self, limit: int = 10) -> List[Dict[str, Any]]:
         try:
             if self.news_api_key:
-                # Try multiple approaches to get fresh news
-                news_sources = [
-                    self._fetch_recent_indian_financial_news,
-                    self._fetch_top_headlines_india,
-                    self._fetch_indian_financial_news
-                ]
-                
-                for news_source in news_sources:
-                    news = news_source(limit)
-                    if news and len(news) > 0:
-                        # Filter for very recent articles (last 6 hours)
-                        recent_news = self._filter_recent_articles(news, hours=6)
-                        if recent_news:
-                            return recent_news
-                
-                # If no recent news found, return whatever we have
-                for news_source in news_sources:
-                    news = news_source(limit)
-                    if news and len(news) > 0:
-                        return news
+                # Try Indian business headlines first
+                news = self._fetch_top_headlines_india(limit)
+                if news and len(news) > 0:
+                    return news
+
+                # Try Indian financial news search
+                news = self._fetch_indian_financial_news(limit)
+                if news and len(news) > 0:
+                    return news
 
             return []
         except Exception as e:
             logger.error(f"Error fetching news: {e}")
             return []
-
-    def _filter_recent_articles(self, articles: List[Dict[str, Any]], hours: int = 6) -> List[Dict[str, Any]]:
-        """Filter articles published within the last specified hours"""
-        cutoff_time = datetime.utcnow() - timedelta(hours=hours)
-        recent_articles = []
-        
-        for article in articles:
-            published_at = article.get('published_at')
-            if not published_at:
-                continue
-                
-            try:
-                # Handle different datetime formats
-                if isinstance(published_at, str):
-                    if 'Z' in published_at:
-                        article_dt = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
-                    else:
-                        article_dt = datetime.fromisoformat(published_at)
-                else:
-                    article_dt = published_at
-                    
-                if article_dt >= cutoff_time:
-                    recent_articles.append(article)
-            except Exception as e:
-                logger.warning(f"Error parsing date {published_at}: {e}")
-                continue
-                
-        return recent_articles
-
-    def _fetch_recent_indian_financial_news(self, limit: int) -> Optional[List[Dict[str, Any]]]:
-        """Fetch very recent Indian financial news (last 24 hours)"""
-        try:
-            # Calculate date for last 24 hours
-            from_date = (datetime.utcnow() - timedelta(hours=24)).strftime('%Y-%m-%d')
-            
-            query = "(India OR Indian OR BSE OR NSE OR Sensex OR Nifty OR rupee) AND (stock OR share OR market OR trading OR investment OR finance)"
-            url = f"{self.news_base_url}/everything"
-            
-            params = {
-                'q': query,
-                'language': 'en',
-                'sortBy': 'publishedAt',
-                'pageSize': limit * 3,  # Fetch more to filter
-                'from': from_date,
-                'apiKey': self.news_api_key
-            }
-            
-            response = requests.get(url, params=params, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-            
-            if 'articles' in data:
-                articles = []
-                for article in data['articles']:
-                    # Skip blocked domains/paths
-                    if not self._is_allowed_article(article):
-                        continue
-                    
-                    # Filter for Indian financial news
-                    if not self._is_indian_financial_news(article):
-                        continue
-                    
-                    # Remove sentiment analysis since you don't want scores
-                    
-                    news_article = NewsArticle(
-                        title=article['title'],
-                        description=article.get('description', ''),
-                        content=article.get('content', ''),
-                        url=article.get('url', ''),
-                        source=article.get('source', {}).get('name', ''),
-                        published_at=datetime.fromisoformat(article['publishedAt'].replace('Z', '+00:00')),
-                        sentiment_score=0.0,  # Default value
-                        sentiment_label='neutral'  # Default value
-                    )
-                    
-                    try:
-                        db.session.add(news_article)
-                        db.session.commit()
-                    except Exception as e:
-                        logger.warning(f"Failed to store news article: {e}")
-                        db.session.rollback()
-                    
-                    articles.append({
-                        'title': article['title'],
-                        'description': article.get('description', ''),
-                        'url': article.get('url', ''),
-                        'source': article.get('source', {}).get('name', ''),
-                        'published_at': article['publishedAt']
-                        # Removed sentiment_score and sentiment_label
-                    })
-                    
-                    if len(articles) >= limit:
-                        break
-                
-                return articles
-                
-        except Exception as e:
-            logger.warning(f"Recent Indian financial news API failed: {e}")
-            
-        return None
 
     def _fetch_indian_financial_news(self, limit: int) -> Optional[List[Dict[str, Any]]]:
         """Fetch specifically Indian financial news"""
@@ -250,13 +139,38 @@ class NewsService:
                     if not self._is_indian_financial_news(article):
                         continue
                     
+                    # Remove sentiment analysis from storage too to avoid DB issues
+                    try:
+                        published = article.get('publishedAt')
+                        published_dt = None
+                        if published:
+                            try:
+                                published_dt = datetime.fromisoformat(published.replace('Z', '+00:00'))
+                            except Exception:
+                                published_dt = datetime.utcnow()
+                        news_article = NewsArticle(
+                            title=article['title'],
+                            description=article.get('description', ''),
+                            content=article.get('content', ''),
+                            url=article.get('url', ''),
+                            source=article.get('source', {}).get('name', ''),
+                            published_at=published_dt
+                            # Removed sentiment fields from storage
+                        )
+                        
+                        db.session.add(news_article)
+                        db.session.commit()
+                    except Exception as e:
+                        logger.warning(f"Failed to store news article: {e}")
+                        db.session.rollback()
+                    
                     articles.append({
                         'title': article['title'],
                         'description': article.get('description', ''),
                         'url': article.get('url', ''),
                         'source': article.get('source', {}).get('name', ''),
                         'published_at': article['publishedAt']
-                        # Removed sentiment_score and sentiment_label
+                        # Removed sentiment_score and sentiment_label from response
                     })
                     
                     if len(articles) >= limit:
@@ -303,9 +217,8 @@ class NewsService:
                             content=article.get('content', ''),
                             url=article.get('url', ''),
                             source=article.get('source', {}).get('name', ''),
-                            published_at=published_dt,
-                            sentiment_score=0.0,  # Default value
-                            sentiment_label='neutral'  # Default value
+                            published_at=published_dt
+                            # Removed sentiment fields from storage
                         )
                         db.session.add(news_article)
                         db.session.commit()
@@ -319,28 +232,50 @@ class NewsService:
                         'url': article.get('url', ''),
                         'source': article.get('source', {}).get('name', ''),
                         'published_at': article.get('publishedAt', datetime.now().isoformat())
-                        # Removed sentiment_score and sentiment_label
+                        # Removed sentiment_score and sentiment_label from response
                     })
                 return articles
         except Exception as e:
             logger.warning(f"Top headlines (IN) failed: {e}")
         return None
     
+    def _analyze_sentiment(self, text: str) -> tuple:
+        """Keep this method but don't use it in responses"""
+        try:
+            positive_keywords = [
+                'surge', 'jump', 'rise', 'gain', 'profit', 'earnings', 'growth',
+                'positive', 'bullish', 'rally', 'breakout', 'strong', 'up'
+            ]
+            negative_keywords = [
+                'fall', 'drop', 'decline', 'loss', 'crash', 'bearish', 'weak',
+                'negative', 'down', 'plunge', 'slump', 'concern', 'risk'
+            ]
+            
+            text_lower = text.lower()
+            positive_count = sum(1 for word in positive_keywords if word in text_lower)
+            negative_count = sum(1 for word in negative_keywords if word in text_lower)
+            
+            if positive_count > negative_count:
+                return 0.5, 'positive'
+            elif negative_count > positive_count:
+                return -0.5, 'negative'
+            else:
+                return 0.0, 'neutral'
+                
+        except Exception as e:
+            logger.error(f"Error in sentiment analysis: {e}")
+            return 0.0, 'neutral'
+    
     def _get_stored_news(self, limit: int) -> List[Dict[str, Any]]:
         try:
-            # Only get very recent stored news (last 6 hours)
-            cutoff_time = datetime.utcnow() - timedelta(hours=6)
-            articles = NewsArticle.query.filter(
-                NewsArticle.published_at >= cutoff_time
-            ).order_by(NewsArticle.published_at.desc()).limit(limit).all()
-            
+            articles = NewsArticle.query.order_by(NewsArticle.published_at.desc()).limit(limit).all()
             return [{
                 'title': article.title,
                 'description': article.description,
                 'url': article.url,
                 'source': article.source,
-                'published_at': article.published_at.isoformat()
-                # Removed sentiment fields
+                'published_at': article.published_at.isoformat() if article.published_at else datetime.now().isoformat()
+                # Removed sentiment fields from response
             } for article in articles]
         except Exception as e:
             logger.error(f"Error getting stored news: {e}")
