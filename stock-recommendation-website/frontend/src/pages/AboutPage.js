@@ -15,7 +15,7 @@ const AboutPage = () => {
           </p>
         </div>
 
-        
+        {/* Mission Section */}
         <section className="mb-16">
           <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12">
             <div className="text-center mb-8">
@@ -49,7 +49,7 @@ const AboutPage = () => {
           </div>
         </section>
 
-        
+        {/* Unique Features */}
         <section className="mb-16">
           <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">What Makes Us Unique</h2>
           
@@ -116,7 +116,7 @@ const AboutPage = () => {
           </div>
         </section>
 
-        
+        {/* Tech Stack */}
         <section className="mb-16">
           <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12">
             <h2 className="text-3xl font-bold text-gray-900 text-center mb-8">Technology Stack</h2>
@@ -147,7 +147,7 @@ const AboutPage = () => {
           </div>
         </section>
 
-        
+        {/* Team */}
         <section className="mb-16">
           <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12">
             <h2 className="text-3xl font-bold text-gray-900 text-center mb-8">Our Team</h2>
@@ -186,7 +186,8 @@ const AboutPage = () => {
           </div>
         </section>
 
-        
+        {/* CTA */}
+
         <section className="text-center">
           <div className="bg-gradient-to-r from-primary-600 to-primary-800 rounded-2xl shadow-lg p-8 md:p-12 text-white">
             <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
@@ -194,12 +195,7 @@ const AboutPage = () => {
               Join thousands of investors who are already making smarter decisions with EquiBull
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a
-                href="/analysis"
-                className="bg-white text-primary-600 hover:bg-gray-100 px-8 py-3 rounded-lg font-semibold text-lg transition-colors duration-200"
-              >
-                Start Analyzing
-              </a>
+              {/* Removed Start Analyzing button */}
               <a
                 href="/"
                 className="border-2 border-white text-white hover:bg-white hover:text-primary-600 px-8 py-3 rounded-lg font-semibold text-lg transition-colors duration-200"
@@ -209,6 +205,7 @@ const AboutPage = () => {
             </div>
           </div>
         </section>
+
       </div>
     </div>
   );
