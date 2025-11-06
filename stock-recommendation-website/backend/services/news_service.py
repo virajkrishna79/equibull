@@ -19,8 +19,8 @@ class NewsService:
         self.preferred_sources = [
             "thehindu.com", "economictimes.indiatimes.com", "business-standard.com",
             "moneycontrol.com", "livemint.com", "financialexpress.com",
-            "bloombergquint.com", "reuters.com", "bloomberg.com",
-            "ndtv.com", "zeebiz.com", "cnbctv18.com"
+            "bloombergquint.com", "reuters.com", "bloomberg.com", "ndtv.com",
+            "zeebiz.com", "cnbctv18.com"
         ]
 
         # Block these website domains
@@ -30,29 +30,19 @@ class NewsService:
             "indiewire.com", "commonsensewithmoney.com", "forbes.com",
             "redflagdeals.com", "bringatrailer.com", "irishtimes.com",
             "ozbargain.com.au", "wccftech.com", "globenewswire.com",
-            "notebookcheck.net", "finance.yahoo.com", "comicbook.com",
-            "biztoc.com", "cnet.com", "cbc.ca", "adexchanger.com",
-            "wwd.com", "americanthinker.com", "mcnews.com.au",
-            "cnblogs.com", "sammobile.com", "protothema.gr", "abc.net.au"
+            "notebookcheck.net", "finance.yahoo.com", "comicbook.com", "biztoc.com",
+            "cnet.com", "cbc.ca", "adexchanger.com", "wwd.com", "americanthinker.com",
+            "mcnews.com.au", "cnblogs.com", "sammobile.com", "protothema.gr",
+            "abc.net.au"
         ]
-        
-        # Block specific paths
+
+        # Block specific paths within allowed domains
         self.blocked_paths = [
             "/magazines/", "/entertainment/", "/lifestyle/", "/sports/", "/panache/"
         ]
 
-    # ✅ NEW: Recency filter
-    def _is_recent(self, article, hours=12):
-        published = article.get("publishedAt", "")
-        if not published:
-            return False
-        try:
-            dt = datetime.fromisoformat(published.replace("Z", "+00:00"))
-            return dt >= datetime.utcnow() - timedelta(hours=hours)
-        except:
-            return False
-
     def _is_allowed_article(self, article: Dict[str, Any]) -> bool:
+        """Return False if the article domain or path is blocked"""
         url = article.get("url", "")
         parsed_url = urlparse(url)
         domain = parsed_url.netloc.lower()
@@ -81,13 +71,12 @@ class NewsService:
         ]
 
         financial_keywords = [
-            'stock', 'share', 'market', 'trading', 'investment', 'investing',
-            'ipo', 'dividend', 'earnings', 'profit', 'revenue', 'quarterly',
-            'financial', 'banking', 'insurance', 'mutual fund', 'portfolio'
+            'stock', 'share', 'market', 'trading', 'investment', 'investing', 'ipo',
+            'dividend', 'earnings', 'profit', 'revenue', 'quarterly', 'financial',
+            'banking', 'insurance', 'mutual fund', 'portfolio'
         ]
 
         text = f"{title} {description} {content}"
-
         indian_matches = sum(1 for keyword in indian_keywords if keyword in text)
         financial_matches = sum(1 for keyword in financial_keywords if keyword in text)
 
@@ -111,9 +100,8 @@ class NewsService:
 
     def _fetch_indian_financial_news(self, limit: int) -> Optional[List[Dict[str, Any]]]:
         try:
-            query = "(India OR Indian OR BSE OR NSE OR Sensex OR Nifty) AND (stock OR finance OR economy OR investing OR banking)"
+            query = "(India OR Indian OR BSE OR NSE OR Sensex OR Nifty) AND (stock market OR finance OR economy OR investing OR banking)"
             url = f"{self.news_base_url}/everything"
-
             params = {
                 'q': query,
                 'language': 'en',
@@ -129,8 +117,6 @@ class NewsService:
             if 'articles' in data:
                 articles = []
                 for article in data['articles']:
-                    if not self._is_recent(article, hours=12):
-                        continue
 
                     if not self._is_allowed_article(article):
                         continue
@@ -138,22 +124,20 @@ class NewsService:
                     if not self._is_indian_financial_news(article):
                         continue
 
-                    if NewsArticle.query.filter_by(url=article['url']).first():
-                        continue
-
                     sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
 
+                    news_article = NewsArticle(
+                        title=article['title'],
+                        description=article.get('description', ''),
+                        content=article.get('content', ''),
+                        url=article.get('url', ''),
+                        source=article.get('source', {}).get('name', ''),
+                        published_at=datetime.fromisoformat(article['publishedAt'].replace('Z', '+00:00')),
+                        sentiment_score=sentiment_score,
+                        sentiment_label=sentiment_label
+                    )
+
                     try:
-                        news_article = NewsArticle(
-                            title=article['title'],
-                            description=article.get('description', ''),
-                            content=article.get('content', ''),
-                            url=article.get('url', ''),
-                            source=article.get('source', {}).get('name', ''),
-                            published_at=datetime.fromisoformat(article['publishedAt'].replace('Z', '+00:00')),
-                            sentiment_score=sentiment_score,
-                            sentiment_label=sentiment_label
-                        )
                         db.session.add(news_article)
                         db.session.commit()
                     except Exception as e:
@@ -165,7 +149,6 @@ class NewsService:
                         'description': article.get('description', ''),
                         'url': article.get('url', ''),
                         'source': article.get('source', {}).get('name', ''),
-                        'published_at': article['publishedAt'],
                         'sentiment_score': sentiment_score,
                         'sentiment_label': sentiment_label
                     })
@@ -189,20 +172,15 @@ class NewsService:
                 'pageSize': limit,
                 'apiKey': self.news_api_key
             }
+
             response = requests.get(url, params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
+
             if 'articles' in data:
                 articles = []
                 for article in data['articles'][:limit]:
-
-                    if not self._is_recent(article, hours=12):
-                        continue
-
                     if not self._is_allowed_article(article):
-                        continue
-
-                    if NewsArticle.query.filter_by(url=article['url']).first():
                         continue
 
                     sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
@@ -213,7 +191,7 @@ class NewsService:
                         if published:
                             try:
                                 published_dt = datetime.fromisoformat(published.replace('Z', '+00:00'))
-                            except:
+                            except Exception:
                                 published_dt = datetime.utcnow()
 
                         news_article = NewsArticle(
@@ -226,6 +204,7 @@ class NewsService:
                             sentiment_score=sentiment_score,
                             sentiment_label=sentiment_label
                         )
+
                         db.session.add(news_article)
                         db.session.commit()
                     except Exception as e:
@@ -237,13 +216,15 @@ class NewsService:
                         'description': article.get('description', ''),
                         'url': article.get('url', ''),
                         'source': article.get('source', {}).get('name', ''),
-                        'published_at': article.get('publishedAt', datetime.now().isoformat()),
                         'sentiment_score': sentiment_score,
                         'sentiment_label': sentiment_label
                     })
+
                 return articles
+
         except Exception as e:
             logger.warning(f"Top headlines (IN) failed: {e}")
+
         return None
 
     def _analyze_sentiment(self, text: str) -> tuple:
@@ -252,6 +233,7 @@ class NewsService:
                 'surge', 'jump', 'rise', 'gain', 'profit', 'earnings', 'growth',
                 'positive', 'bullish', 'rally', 'breakout', 'strong', 'up'
             ]
+
             negative_keywords = [
                 'fall', 'drop', 'decline', 'loss', 'crash', 'bearish', 'weak',
                 'negative', 'down', 'plunge', 'slump', 'concern', 'risk'
@@ -275,7 +257,14 @@ class NewsService:
     def _get_stored_news(self, limit: int) -> List[Dict[str, Any]]:
         try:
             articles = NewsArticle.query.order_by(NewsArticle.published_at.desc()).limit(limit).all()
-            return [article.to_dict() for article in articles]
+            stored = [article.to_dict() for article in articles]
+
+            # strip published_at before returning
+            for item in stored:
+                item.pop("published_at", None)
+
+            return stored
+
         except Exception as e:
             logger.error(f"Error getting stored news: {e}")
             return self.fallback_news[:limit]
@@ -287,7 +276,6 @@ class NewsService:
                 'description': 'Major indices demonstrate strength despite ongoing economic uncertainties.',
                 'url': '',
                 'source': 'Market News',
-                'published_at': datetime.now().isoformat(),
                 'sentiment_score': 0.3,
                 'sentiment_label': 'positive'
             },
@@ -296,7 +284,6 @@ class NewsService:
                 'description': 'Technology stocks continue to outperform as investors seek growth opportunities.',
                 'url': '',
                 'source': 'Financial Times',
-                'published_at': datetime.now().isoformat(),
                 'sentiment_score': 0.5,
                 'sentiment_label': 'positive'
             },
@@ -305,7 +292,6 @@ class NewsService:
                 'description': 'Investors closely watch Fed decisions for market direction clues.',
                 'url': '',
                 'source': 'Reuters',
-                'published_at': datetime.now().isoformat(),
                 'sentiment_score': 0.0,
                 'sentiment_label': 'neutral'
             },
@@ -314,7 +300,6 @@ class NewsService:
                 'description': 'Energy sector faces volatility amid changing supply dynamics.',
                 'url': '',
                 'source': 'Bloomberg',
-                'published_at': datetime.now().isoformat(),
                 'sentiment_score': -0.2,
                 'sentiment_label': 'negative'
             },
@@ -323,7 +308,6 @@ class NewsService:
                 'description': 'Corporate earnings reports show varied performance across sectors.',
                 'url': '',
                 'source': 'CNBC',
-                'published_at': datetime.now().isoformat(),
                 'sentiment_score': 0.1,
                 'sentiment_label': 'neutral'
             }
@@ -340,69 +324,68 @@ class NewsService:
                         'pageSize': limit,
                         'apiKey': self.news_api_key
                     }
+
                     response = requests.get(url, params=params, timeout=10)
                     response.raise_for_status()
                     data = response.json()
+
                     if 'articles' in data and data['articles']:
                         articles = []
                         for article in data['articles'][:limit]:
-
-                            if not self._is_recent(article, hours=12):
-                                continue
-
                             if not self._is_allowed_article(article):
                                 continue
 
                             sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
+
                             articles.append({
                                 'title': article['title'],
                                 'description': article.get('description', ''),
                                 'url': article.get('url', ''),
                                 'source': article.get('source', {}).get('name', ''),
-                                'published_at': article.get('publishedAt', datetime.now().isoformat()),
                                 'sentiment_score': sentiment_score,
                                 'sentiment_label': sentiment_label
                             })
+
                         return articles
-                except:
+
+                except Exception:
                     pass
 
-                query = f'("{symbol}" OR "{self._get_company_name(symbol)}") AND (India OR NSE OR BSE)'
-                url = f"{self.news_base_url}/everything"
-                params = {
-                    'q': query,
-                    'language': 'en',
-                    'sortBy': 'publishedAt',
-                    'pageSize': limit,
-                    'apiKey': self.news_api_key
-                }
-                response = requests.get(url, params=params, timeout=10)
-                response.raise_for_status()
-                data = response.json()
-                if 'articles' in data:
-                    articles = []
-                    for article in data['articles'][:limit]:
+            query = f'("{symbol}" OR "{self._get_company_name(symbol)}") AND (India OR NSE OR BSE)'
+            url = f"{self.news_base_url}/everything"
+            params = {
+                'q': query,
+                'language': 'en',
+                'sortBy': 'publishedAt',
+                'pageSize': limit,
+                'apiKey': self.news_api_key
+            }
 
-                        if not self._is_recent(article, hours=12):
-                            continue
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
 
-                        if not self._is_allowed_article(article):
-                            continue
+            if 'articles' in data:
+                articles = []
+                for article in data['articles'][:limit]:
+                    if not self._is_allowed_article(article):
+                        continue
 
-                        sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
-                        articles.append({
-                            'title': article['title'],
-                            'description': article.get('description', ''),
-                            'url': article.get('url', ''),
-                            'source': article.get('source', {}).get('name', ''),
-                            'published_at': article.get('publishedAt', datetime.now().isoformat()),
-                            'sentiment_score': sentiment_score,
-                            'sentiment_label': sentiment_label
-                        })
-                    return articles
-            
+                    sentiment_score, sentiment_label = self._analyze_sentiment(article['title'])
+
+                    articles.append({
+                        'title': article['title'],
+                        'description': article.get('description', ''),
+                        'url': article.get('url', ''),
+                        'source': article.get('source', {}).get('name', ''),
+                        'sentiment_score': sentiment_score,
+                        'sentiment_label': sentiment_label
+                    })
+
+                return articles
+
             return self.get_latest_news(limit)
-            
+
         except Exception as e:
             logger.error(f"Error fetching news for {symbol}: {e}")
             return self.get_latest_news(limit)
@@ -420,4 +403,5 @@ class NewsService:
             'HDFC': 'HDFC Bank Limited',
             'ICICIBANK': 'ICICI Bank Limited'
         }
+
         return company_names.get(symbol.upper(), symbol)
