@@ -28,7 +28,7 @@ const HomePage = () => {
   };
 
   const handleSubscriptionSuccess = () => {
-    toast.success('Successfully subscribed to daily recommendations!');
+    // Success toast is handled in EmailSubscriptionForm
   };
 
   return (
