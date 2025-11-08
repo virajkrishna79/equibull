@@ -9,7 +9,6 @@ import { fetchNews } from '../services/api';
 const HomePage = () => {
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isSubscribed, setIsSubscribed] = useState(false);
 
   useEffect(() => {
     loadNews();
@@ -29,7 +28,7 @@ const HomePage = () => {
   };
 
   const handleSubscriptionSuccess = () => {
-    setIsSubscribed(true);
+    toast.success('Successfully subscribed to daily recommendations!');
   };
 
   return (
